@@ -1,0 +1,43 @@
+# Supabase CLI is used ONLY for the local PostgreSQL container, migrations and pgTAP tests.
+# Every other Supabase service is disabled: auth is Amazon Cognito, the API is AWS Lambda.
+project_id = "base-fairplay"
+
+[db]
+port = 54322
+shadow_port = 54320
+health_timeout = "2m"
+major_version = 17
+
+[db.pooler]
+enabled = false
+
+[db.migrations]
+enabled = true
+
+[db.seed]
+enabled = true
+sql_paths = ["./seed.sql"]
+
+[api]
+enabled = false
+
+[realtime]
+enabled = false
+
+[studio]
+enabled = false
+
+[local_smtp]
+enabled = false
+
+[storage]
+enabled = false
+
+[auth]
+enabled = false
+
+[edge_runtime]
+enabled = false
+
+[analytics]
+enabled = false

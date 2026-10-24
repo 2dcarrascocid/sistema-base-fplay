@@ -1,0 +1,20 @@
+{
+  "name": "base-fairplay",
+  "private": true,
+  "packageManager": "pnpm@10.34.8",
+  "engines": {
+    "node": ">=24.0.0 <25"
+  },
+  "scripts": {
+    "db:start": "supabase db start",
+    "db:stop": "supabase stop",
+    "db:reset": "supabase db reset",
+    "db:test": "supabase test db",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "devDependencies": {
+    "supabase": "2.117.0",
+    "typescript": "6.0.3"
+  }
+}
