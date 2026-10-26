@@ -29,10 +29,22 @@ specs/        especificaciones (SDD)
 
 ## Entorno local navegable (sin AWS)
 
+En un equipo nuevo basta con clonar, abrir Docker Desktop y ejecutar:
+
 ```bash
-pnpm install
+corepack enable   # una vez por equipo: deja disponible pnpm
 pnpm dev          # BD en contenedor + API local (:3000) + web (http://localhost:5173)
 ```
+
+Antes de levantar la API y la web, `pnpm dev` ejecuta [`scripts/db-ensure.mjs`](scripts/db-ensure.mjs) (también disponible como `pnpm db:ensure`):
+
+1. Instala las dependencias si faltan.
+2. Verifica que Docker esté corriendo.
+3. Inicia el contenedor de PostgreSQL. La primera vez descarga la imagen y crea la BD con migraciones y semillas.
+4. Aplica las migraciones pendientes (por ejemplo, las que llegaron con un `git pull`).
+5. Carga `seed.sql` y `seed.local.sql` si sus datos no existen.
+
+Todos los pasos se pueden repetir sin efecto: si todo está listo, no cambia nada.
 
 - Usuario: `superadmin@local.test` · contraseña `Local-Dev-2026!` · código MFA `123456`.
 - La API local (`apps/api/dev/server.ts`) usa las mismas rutas que las Lambdas, sobre la BD del contenedor, con Cognito, SES y S3 simulados. Los emails (invitaciones, códigos) aparecen en la consola. Google, Facebook y Apple se simulan con una pantalla donde eliges el usuario.
