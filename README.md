@@ -8,15 +8,16 @@ Las especificaciones están en [`specs/`](specs/) y se escriben antes del códig
 
 ```
 apps/
-  api/        Lambdas TypeScript (Serverless Framework)     — fase 2
+  api/        Lambdas TypeScript (Serverless Framework)
   web/        Vue 3 + Vite + Vuetify                         — fase 3
   mobile/     Flutter (solo usuario cliente)                 — fase 5
 packages/
-  shared/     validaciones compartidas: RUT, claves de permiso
+  shared/     validaciones compartidas: RUT, permisos, contraseñas, plantillas
   ui/         componentes Vue reutilizables                  — fase 3
 supabase/
   migrations/ SQL estándar de PostgreSQL
-  seed.sql    roles, superusuario, menús, perfiles y configuración base
+  seed.sql    roles, menús, perfiles y configuración base (todos los entornos)
+  seed.local.sql  solo contenedor local: superusuario y login de app_api/app_auth
   tests/      pruebas pgTAP
 specs/        especificaciones (SDD)
 ```

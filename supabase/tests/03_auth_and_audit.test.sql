@@ -24,11 +24,15 @@ values ('c0000000-0000-0000-0000-0000000000c1', 'web', 'jti-lock', now() + inter
 
 set local role app_auth;
 
--- Lockout after failed attempts --------------------------------------------------------------
-select ok(not app.register_login_failure('c0000000-0000-0000-0000-0000000000c1'), '1st failure does not lock');
-select ok(not app.register_login_failure('c0000000-0000-0000-0000-0000000000c1'), '2nd failure does not lock');
-select ok(app.register_login_failure('c0000000-0000-0000-0000-0000000000c1'), '3rd failure locks the account');
-select ok(app.is_locked('c0000000-0000-0000-0000-0000000000c1'), 'the account is locked');
+-- Lockout after failed attempts (max 3). Each attempt not followed by a success counts as failed.
+select is(app.register_login_attempt('c0000000-0000-0000-0000-0000000000c1'), 'allowed', 'attempt 1 allowed');
+select app.register_login_attempt('c0000000-0000-0000-0000-0000000000c1');
+select is(app.register_login_attempt('c0000000-0000-0000-0000-0000000000c1'), 'allowed', 'attempt 3 allowed');
+select is(
+  app.register_login_attempt('c0000000-0000-0000-0000-0000000000c1'), 'just_locked',
+  'after 3 failed attempts the next one locks the account'
+);
+select is(app.register_login_attempt('c0000000-0000-0000-0000-0000000000c1'), 'locked', 'a locked account rejects attempts');
 select is(
   (select revoked_reason from app.user_sessions where origin_jti = 'jti-lock'), 'locked',
   'locking revokes the active sessions'
@@ -96,6 +100,8 @@ select ok(not app.hit_rate_limit('test:ip:1', 3600, 2), 'the hit over the limit 
 -- Audit log ----------------------------------------------------------------------------------
 insert into app.audit_log (event_type, result, ip) values ('auth.login.failure', 'failure', '10.0.0.1');
 reset role;
+-- app_auth cannot read the audit log, so the id of the row just written is read as the owner.
+select max(id) as failure_id from app.audit_log where event_type = 'auth.login.failure' \gset
 insert into app.audit_log (actor_user_id, event_type, result, old_value, new_value)
 values ('c0000000-0000-0000-0000-0000000000c1', 'user.update', 'success', '{"job_title": null}', '{"job_title": "x"}');
 
@@ -104,13 +110,9 @@ select throws_ok($$update app.audit_log set result = 'success'$$, '42501', null,
 select throws_ok($$delete from app.audit_log$$, '42501', null, 'audit rows cannot be deleted, even by the owner');
 
 alter table app.audit_log disable trigger audit_log_no_update_delete;
-update app.audit_log set result = 'success' where event_type = 'auth.login.failure';
+update app.audit_log set result = 'success' where id = :failure_id;
 alter table app.audit_log enable trigger audit_log_no_update_delete;
-select is(
-  app.verify_audit_chain(),
-  (select id from app.audit_log where event_type = 'auth.login.failure'),
-  'tampering is detected by the hash chain'
-);
+select is(app.verify_audit_chain(), :failure_id::bigint, 'tampering is detected by the hash chain');
 
 select * from finish();
 rollback;

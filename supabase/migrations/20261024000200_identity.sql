@@ -83,11 +83,13 @@ create table app.user_sessions (
   expires_at timestamptz not null,
   revoked_at timestamptz,
   revoked_by uuid references app.users (id),
-  revoked_reason text check (revoked_reason in ('logout', 'admin', 'password_change', 'idle', 'locked', 'deactivated')),
+  revoked_reason text check (revoked_reason in ('logout', 'admin', 'password_change', 'idle', 'expired', 'locked', 'deactivated')),
   check (revoked_at is null or revoked_reason is not null)
 );
 
 create index user_sessions_active_idx on app.user_sessions (user_id) where revoked_at is null;
+create unique index user_sessions_refresh_token_key on app.user_sessions (refresh_token_hash)
+  where refresh_token_hash is not null;
 
 create table app.invitations (
   id uuid primary key default gen_random_uuid(),

@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   typescript:
-    name: TypeScript (typecheck + unit tests)
+    name: TypeScript (typecheck, shared tests, Lambda bundles)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -25,10 +25,11 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
-      - run: pnpm test
+      - run: pnpm --filter @base/shared test
+      - run: pnpm --filter @base/api bundle:check
 
   database:
-    name: Database (migrations + pgTAP)
+    name: Database (pgTAP) and API tests
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -38,9 +39,10 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # Postgres runs in a container (Supabase CLI); migrations and seed are applied on start.
+      # Postgres runs in a container (Supabase CLI); migrations and seeds are applied on start.
       - run: pnpm db:start
       - run: pnpm db:test
+      - run: pnpm --filter @base/api test
 
   secrets:
     name: Secret scanning

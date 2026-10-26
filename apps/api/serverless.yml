@@ -1,0 +1,518 @@
+# Base Fairplay API — Serverless Framework v4, stages dev and prod.
+# Prerequisites per stage (see README.md): Secrets Manager secrets, SES identity, IdP credentials.
+service: base-fairplay-api
+frameworkVersion: '4'
+
+params:
+  default:
+    region: us-east-1
+    googleEnabled: 'false'
+    facebookEnabled: 'false'
+    appleEnabled: 'false'
+    logRetentionDays: 90
+    deletionProtection: INACTIVE
+  prod:
+    deletionProtection: ACTIVE
+    logRetentionDays: 365
+  # Every other parameter (webUrl, cognitoDomainPrefix, mobileRedirectUri, emailFrom, sesIdentityArn,
+  # turnstileHostname, dbHost, dbPort, dbName, apiDbSecretArn, authDbSecretArn, appSecretArn,
+  # idpSecretName) is set per stage in the Serverless Dashboard or with --param="name=value".
+
+provider:
+  name: aws
+  runtime: nodejs24.x
+  architecture: arm64
+  region: ${param:region}
+  memorySize: 512
+  timeout: 10
+  logRetentionInDays: ${param:logRetentionDays}
+  endpointType: REGIONAL
+  apiGateway:
+    minimumCompressionSize: 1024
+  environment:
+    STAGE: ${sls:stage}
+    NODE_OPTIONS: --enable-source-maps
+    COGNITO_USER_POOL_ID: !Ref UserPool
+    COGNITO_WEB_CLIENT_ID: !Ref WebClient
+    COGNITO_MOBILE_CLIENT_ID: !Ref MobileClient
+    COGNITO_DOMAIN: https://${param:cognitoDomainPrefix}.auth.${aws:region}.amazoncognito.com
+    WEB_URL: ${param:webUrl}
+    DB_HOST: ${param:dbHost}
+    DB_PORT: ${param:dbPort}
+    DB_NAME: ${param:dbName}
+    DB_SSL: require
+    EMAIL_FROM: ${param:emailFrom}
+    PHOTO_BUCKET: !Ref PhotoBucket
+    TURNSTILE_HOSTNAME: ${param:turnstileHostname}
+
+build:
+  esbuild:
+    bundle: true
+    minify: true
+    sourcemap:
+      type: linked
+    # Bundle the pinned AWS SDK instead of using the runtime's copy.
+    exclude: []
+
+functions:
+  auth:
+    handler: src/auth/index.handler
+    role: AuthFunctionRole
+    environment:
+      DB_SECRET_ARN: ${param:authDbSecretArn}
+      APP_SECRET_ARN: ${param:appSecretArn}
+      NEEDS_WEB_CLIENT_SECRET: 'true'
+    events:
+      - http: { path: /auth/login, method: post }
+      - http: { path: /auth/challenge, method: post }
+      - http: { path: /auth/mfa/setup, method: post }
+      - http: { path: /auth/refresh, method: post }
+      - http: { path: /auth/logout, method: post }
+      - http: { path: '/auth/federated/{provider}/start', method: get }
+      - http: { path: /auth/federated/callback, method: get }
+      - http: { path: /auth/password/forgot, method: post }
+      - http: { path: /auth/password/reset, method: post }
+      - http: { path: /auth/invitations/accept, method: post }
+      - http: { path: /auth/register, method: post }
+
+  me:
+    handler: src/me/index.handler
+    role: MeFunctionRole
+    environment:
+      DB_SECRET_ARN: ${param:apiDbSecretArn}
+    events:
+      - http: { path: /me, method: get }
+      - http: { path: /me, method: patch }
+      - http: { path: /me/password, method: post }
+      - http: { path: /me/sessions, method: get }
+      - http: { path: '/me/sessions/{id}', method: delete }
+      - http: { path: /me/sessions/revoke-others, method: post }
+      - http: { path: /me/mfa/setup, method: post }
+      - http: { path: /me/mfa/verify, method: post }
+      - http: { path: /me/mfa, method: delete }
+      - http: { path: /me/photo/upload-url, method: post }
+      - http: { path: /me/photo, method: put }
+
+  preSignUp:
+    handler: src/triggers/index.preSignUpHandler
+    role: PreSignUpFunctionRole
+    environment:
+      DB_SECRET_ARN: ${param:authDbSecretArn}
+
+  preAuthentication:
+    handler: src/triggers/index.preAuthenticationHandler
+    role: PreAuthenticationFunctionRole
+    environment:
+      DB_SECRET_ARN: ${param:authDbSecretArn}
+
+  postAuthentication:
+    handler: src/triggers/index.postAuthenticationHandler
+    role: PostAuthenticationFunctionRole
+    environment:
+      DB_SECRET_ARN: ${param:authDbSecretArn}
+
+  customMessage:
+    handler: src/triggers/index.customMessageHandler
+    role: CustomMessageFunctionRole
+    environment:
+      DB_SECRET_ARN: ${param:authDbSecretArn}
+
+resources:
+  Conditions:
+    EnableGoogle: !Equals ['${param:googleEnabled}', 'true']
+    EnableFacebook: !Equals ['${param:facebookEnabled}', 'true']
+    EnableApple: !Equals ['${param:appleEnabled}', 'true']
+    # The web client needs at least one provider for its OAuth configuration.
+    NoFederated: !Not [!Or [!Condition EnableGoogle, !Condition EnableFacebook, !Condition EnableApple]]
+
+  Resources:
+    # ------------------------------------------------------------------------------------------
+    # Cognito: authentication only. Users, roles and permissions live in PostgreSQL.
+    # ------------------------------------------------------------------------------------------
+    UserPool:
+      Type: AWS::Cognito::UserPool
+      Properties:
+        UserPoolName: ${self:service}-${sls:stage}
+        DeletionProtection: ${param:deletionProtection}
+        UsernameAttributes: [email]
+        UsernameConfiguration: { CaseSensitive: false }
+        AutoVerifiedAttributes: [email]
+        AdminCreateUserConfig:
+          AllowAdminCreateUserOnly: true
+        AccountRecoverySetting:
+          RecoveryMechanisms: [{ Name: verified_email, Priority: 1 }]
+        # Initial values; the security policy maintainer (phase 4) keeps them in sync with app.security_policy.
+        Policies:
+          PasswordPolicy:
+            MinimumLength: 12
+            RequireUppercase: true
+            RequireLowercase: true
+            RequireNumbers: true
+            RequireSymbols: true
+            TemporaryPasswordValidityDays: 3
+        MfaConfiguration: 'OPTIONAL'
+        EnabledMfas: [SOFTWARE_TOKEN_MFA]
+        EmailConfiguration:
+          EmailSendingAccount: DEVELOPER
+          From: ${param:emailFrom}
+          SourceArn: ${param:sesIdentityArn}
+        LambdaConfig:
+          PreSignUp: !GetAtt PreSignUpLambdaFunction.Arn
+          PreAuthentication: !GetAtt PreAuthenticationLambdaFunction.Arn
+          PostAuthentication: !GetAtt PostAuthenticationLambdaFunction.Arn
+          CustomMessage: !GetAtt CustomMessageLambdaFunction.Arn
+
+    UserPoolDomain:
+      Type: AWS::Cognito::UserPoolDomain
+      Properties:
+        UserPoolId: !Ref UserPool
+        Domain: ${param:cognitoDomainPrefix}
+        ManagedLoginVersion: 1
+
+    GoogleIdentityProvider:
+      Type: AWS::Cognito::UserPoolIdentityProvider
+      Condition: EnableGoogle
+      Properties:
+        UserPoolId: !Ref UserPool
+        ProviderName: Google
+        ProviderType: Google
+        ProviderDetails:
+          client_id: '{{resolve:secretsmanager:${param:idpSecretName}:SecretString:googleClientId}}'
+          client_secret: '{{resolve:secretsmanager:${param:idpSecretName}:SecretString:googleClientSecret}}'
+          authorize_scopes: openid email profile
+        AttributeMapping:
+          email: email
+          email_verified: email_verified
+          given_name: given_name
+          family_name: family_name
+
+    FacebookIdentityProvider:
+      Type: AWS::Cognito::UserPoolIdentityProvider
+      Condition: EnableFacebook
+      Properties:
+        UserPoolId: !Ref UserPool
+        ProviderName: Facebook
+        ProviderType: Facebook
+        ProviderDetails:
+          client_id: '{{resolve:secretsmanager:${param:idpSecretName}:SecretString:facebookAppId}}'
+          client_secret: '{{resolve:secretsmanager:${param:idpSecretName}:SecretString:facebookAppSecret}}'
+          authorize_scopes: public_profile,email
+        AttributeMapping:
+          email: email
+          given_name: first_name
+          family_name: last_name
+
+    AppleIdentityProvider:
+      Type: AWS::Cognito::UserPoolIdentityProvider
+      Condition: EnableApple
+      Properties:
+        UserPoolId: !Ref UserPool
+        ProviderName: SignInWithApple
+        ProviderType: SignInWithApple
+        ProviderDetails:
+          client_id: '{{resolve:secretsmanager:${param:idpSecretName}:SecretString:appleServicesId}}'
+          team_id: '{{resolve:secretsmanager:${param:idpSecretName}:SecretString:appleTeamId}}'
+          key_id: '{{resolve:secretsmanager:${param:idpSecretName}:SecretString:appleKeyId}}'
+          private_key: '{{resolve:secretsmanager:${param:idpSecretName}:SecretString:applePrivateKey}}'
+          authorize_scopes: email name
+        AttributeMapping:
+          email: email
+          email_verified: email_verified
+          given_name: firstName
+          family_name: lastName
+
+    # Providers are referenced with !Ref (returns the provider name) so the client waits for them.
+    # Confidential client used only by our backend (BFF): the browser never sees Cognito tokens
+    # except the short-lived access token.
+    WebClient:
+      Type: AWS::Cognito::UserPoolClient
+      Properties:
+        UserPoolId: !Ref UserPool
+        ClientName: web
+        GenerateSecret: true
+        ExplicitAuthFlows: [ALLOW_USER_PASSWORD_AUTH, ALLOW_REFRESH_TOKEN_AUTH]
+        AllowedOAuthFlowsUserPoolClient: true
+        AllowedOAuthFlows: [code]
+        AllowedOAuthScopes: [openid, email, profile, aws.cognito.signin.user.admin]
+        CallbackURLs: ['${param:webUrl}/api/auth/federated/callback']
+        LogoutURLs: ['${param:webUrl}/login']
+        SupportedIdentityProviders:
+          - !If [NoFederated, COGNITO, !Ref AWS::NoValue]
+          - !If [EnableGoogle, !Ref GoogleIdentityProvider, !Ref AWS::NoValue]
+          - !If [EnableFacebook, !Ref FacebookIdentityProvider, !Ref AWS::NoValue]
+          - !If [EnableApple, !Ref AppleIdentityProvider, !Ref AWS::NoValue]
+        AccessTokenValidity: 10
+        IdTokenValidity: 10
+        RefreshTokenValidity: 12
+        TokenValidityUnits: { AccessToken: minutes, IdToken: minutes, RefreshToken: hours }
+        AuthSessionValidity: 3
+        EnableTokenRevocation: true
+        PreventUserExistenceErrors: ENABLED
+
+    # Public client for the Flutter app: system browser + authorization code with PKCE.
+    MobileClient:
+      Type: AWS::Cognito::UserPoolClient
+      Properties:
+        UserPoolId: !Ref UserPool
+        ClientName: mobile
+        GenerateSecret: false
+        ExplicitAuthFlows: [ALLOW_USER_SRP_AUTH, ALLOW_REFRESH_TOKEN_AUTH]
+        AllowedOAuthFlowsUserPoolClient: true
+        AllowedOAuthFlows: [code]
+        AllowedOAuthScopes: [openid, email, profile, aws.cognito.signin.user.admin]
+        CallbackURLs: ['${param:mobileRedirectUri}']
+        LogoutURLs: ['${param:mobileRedirectUri}']
+        SupportedIdentityProviders:
+          - COGNITO
+          - !If [EnableGoogle, !Ref GoogleIdentityProvider, !Ref AWS::NoValue]
+          - !If [EnableFacebook, !Ref FacebookIdentityProvider, !Ref AWS::NoValue]
+          - !If [EnableApple, !Ref AppleIdentityProvider, !Ref AWS::NoValue]
+        AccessTokenValidity: 10
+        IdTokenValidity: 10
+        RefreshTokenValidity: 12
+        TokenValidityUnits: { AccessToken: minutes, IdToken: minutes, RefreshToken: hours }
+        AuthSessionValidity: 3
+        EnableTokenRevocation: true
+        PreventUserExistenceErrors: ENABLED
+
+    PreSignUpInvokePermission:
+      Type: AWS::Lambda::Permission
+      Properties:
+        Action: lambda:InvokeFunction
+        FunctionName: !GetAtt PreSignUpLambdaFunction.Arn
+        Principal: cognito-idp.amazonaws.com
+        SourceArn: !GetAtt UserPool.Arn
+    PreAuthenticationInvokePermission:
+      Type: AWS::Lambda::Permission
+      Properties:
+        Action: lambda:InvokeFunction
+        FunctionName: !GetAtt PreAuthenticationLambdaFunction.Arn
+        Principal: cognito-idp.amazonaws.com
+        SourceArn: !GetAtt UserPool.Arn
+    PostAuthenticationInvokePermission:
+      Type: AWS::Lambda::Permission
+      Properties:
+        Action: lambda:InvokeFunction
+        FunctionName: !GetAtt PostAuthenticationLambdaFunction.Arn
+        Principal: cognito-idp.amazonaws.com
+        SourceArn: !GetAtt UserPool.Arn
+    CustomMessageInvokePermission:
+      Type: AWS::Lambda::Permission
+      Properties:
+        Action: lambda:InvokeFunction
+        FunctionName: !GetAtt CustomMessageLambdaFunction.Arn
+        Principal: cognito-idp.amazonaws.com
+        SourceArn: !GetAtt UserPool.Arn
+
+    # ------------------------------------------------------------------------------------------
+    # AWS WAF on the Cognito User Pool (protects the hosted login used by the mobile app).
+    # The web/API WebACL is attached to CloudFront in phase 3.
+    # ------------------------------------------------------------------------------------------
+    CognitoWebAcl:
+      Type: AWS::WAFv2::WebACL
+      Properties:
+        Name: ${self:service}-${sls:stage}-cognito
+        Scope: REGIONAL
+        DefaultAction: { Allow: {} }
+        VisibilityConfig: { SampledRequestsEnabled: true, CloudWatchMetricsEnabled: true, MetricName: cognito-acl }
+        Rules:
+          - Name: common
+            Priority: 1
+            OverrideAction: { None: {} }
+            Statement: { ManagedRuleGroupStatement: { VendorName: AWS, Name: AWSManagedRulesCommonRuleSet } }
+            VisibilityConfig: { SampledRequestsEnabled: true, CloudWatchMetricsEnabled: true, MetricName: common }
+          - Name: known-bad-inputs
+            Priority: 2
+            OverrideAction: { None: {} }
+            Statement: { ManagedRuleGroupStatement: { VendorName: AWS, Name: AWSManagedRulesKnownBadInputsRuleSet } }
+            VisibilityConfig: { SampledRequestsEnabled: true, CloudWatchMetricsEnabled: true, MetricName: known-bad-inputs }
+          - Name: ip-reputation
+            Priority: 3
+            OverrideAction: { None: {} }
+            Statement: { ManagedRuleGroupStatement: { VendorName: AWS, Name: AWSManagedRulesAmazonIpReputationList } }
+            VisibilityConfig: { SampledRequestsEnabled: true, CloudWatchMetricsEnabled: true, MetricName: ip-reputation }
+          - Name: rate-limit-ip
+            Priority: 4
+            Action: { Block: {} }
+            Statement: { RateBasedStatement: { Limit: 300, EvaluationWindowSec: 300, AggregateKeyType: IP } }
+            VisibilityConfig: { SampledRequestsEnabled: true, CloudWatchMetricsEnabled: true, MetricName: rate-limit-ip }
+
+    CognitoWebAclAssociation:
+      Type: AWS::WAFv2::WebACLAssociation
+      Properties:
+        ResourceArn: !GetAtt UserPool.Arn
+        WebACLArn: !GetAtt CognitoWebAcl.Arn
+
+    # ------------------------------------------------------------------------------------------
+    # Private photo bucket (presigned POST/GET only)
+    # ------------------------------------------------------------------------------------------
+    PhotoBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketEncryption:
+          ServerSideEncryptionConfiguration: [{ ServerSideEncryptionByDefault: { SSEAlgorithm: AES256 } }]
+        PublicAccessBlockConfiguration:
+          BlockPublicAcls: true
+          BlockPublicPolicy: true
+          IgnorePublicAcls: true
+          RestrictPublicBuckets: true
+        OwnershipControls:
+          Rules: [{ ObjectOwnership: BucketOwnerEnforced }]
+        CorsConfiguration:
+          CorsRules:
+            - AllowedOrigins: ['${param:webUrl}']
+              AllowedMethods: [GET, POST]
+              AllowedHeaders: ['*']
+              MaxAge: 3000
+
+    PhotoBucketPolicy:
+      Type: AWS::S3::BucketPolicy
+      Properties:
+        Bucket: !Ref PhotoBucket
+        PolicyDocument:
+          Statement:
+            - Sid: DenyInsecureTransport
+              Effect: Deny
+              Principal: '*'
+              Action: 's3:*'
+              Resource: [!GetAtt PhotoBucket.Arn, !Join ['', [!GetAtt PhotoBucket.Arn, '/*']]]
+              Condition: { Bool: { 'aws:SecureTransport': 'false' } }
+
+    # ------------------------------------------------------------------------------------------
+    # One least-privilege IAM role per Lambda
+    # ------------------------------------------------------------------------------------------
+    AuthFunctionRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument: &lambdaTrust
+          Statement: [{ Effect: Allow, Principal: { Service: lambda.amazonaws.com }, Action: sts:AssumeRole }]
+        Policies:
+          - PolicyName: auth
+            PolicyDocument:
+              Statement:
+                - Effect: Allow
+                  Action: [logs:CreateLogStream, logs:PutLogEvents]
+                  Resource: arn:aws:logs:${aws:region}:${aws:accountId}:log-group:/aws/lambda/${self:service}-${sls:stage}-auth:*
+                - Effect: Allow
+                  Action: secretsmanager:GetSecretValue
+                  Resource: ['${param:authDbSecretArn}', '${param:appSecretArn}']
+                - Effect: Allow
+                  Action: ses:SendEmail
+                  Resource: '${param:sesIdentityArn}'
+
+    AuthFunctionCognitoPolicy:
+      Type: AWS::IAM::Policy
+      Properties:
+        PolicyName: auth-cognito
+        Roles: [!Ref AuthFunctionRole]
+        PolicyDocument:
+          Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:DescribeUserPoolClient
+                - cognito-idp:AdminCreateUser
+                - cognito-idp:AdminDeleteUser
+                - cognito-idp:AdminSetUserPassword
+                - cognito-idp:AdminUpdateUserAttributes
+                - cognito-idp:AdminUserGlobalSignOut
+              Resource: !GetAtt UserPool.Arn
+
+    MeFunctionRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument: *lambdaTrust
+        Policies:
+          - PolicyName: me
+            PolicyDocument:
+              Statement:
+                - Effect: Allow
+                  Action: [logs:CreateLogStream, logs:PutLogEvents]
+                  Resource: arn:aws:logs:${aws:region}:${aws:accountId}:log-group:/aws/lambda/${self:service}-${sls:stage}-me:*
+                - Effect: Allow
+                  Action: secretsmanager:GetSecretValue
+                  Resource: '${param:apiDbSecretArn}'
+                - Effect: Allow
+                  Action: [s3:PutObject, s3:GetObject]
+                  Resource: !Join ['', [!GetAtt PhotoBucket.Arn, '/users/*']]
+
+    PreSignUpFunctionRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument: *lambdaTrust
+        Policies:
+          - PolicyName: pre-sign-up
+            PolicyDocument:
+              Statement:
+                - Effect: Allow
+                  Action: [logs:CreateLogStream, logs:PutLogEvents]
+                  Resource: arn:aws:logs:${aws:region}:${aws:accountId}:log-group:/aws/lambda/${self:service}-${sls:stage}-preSignUp:*
+                - Effect: Allow
+                  Action: secretsmanager:GetSecretValue
+                  Resource: '${param:authDbSecretArn}'
+
+    # Separate policy: the pool depends on the trigger function, so the role cannot reference the pool.
+    PreSignUpCognitoPolicy:
+      Type: AWS::IAM::Policy
+      Properties:
+        PolicyName: pre-sign-up-cognito
+        Roles: [!Ref PreSignUpFunctionRole]
+        PolicyDocument:
+          Statement:
+            - Effect: Allow
+              Action: [cognito-idp:AdminCreateUser, cognito-idp:AdminDeleteUser, cognito-idp:AdminLinkProviderForUser]
+              Resource: !GetAtt UserPool.Arn
+
+    PreAuthenticationFunctionRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument: *lambdaTrust
+        Policies:
+          - PolicyName: pre-authentication
+            PolicyDocument:
+              Statement:
+                - Effect: Allow
+                  Action: [logs:CreateLogStream, logs:PutLogEvents]
+                  Resource: arn:aws:logs:${aws:region}:${aws:accountId}:log-group:/aws/lambda/${self:service}-${sls:stage}-preAuthentication:*
+                - Effect: Allow
+                  Action: secretsmanager:GetSecretValue
+                  Resource: '${param:authDbSecretArn}'
+                - Effect: Allow
+                  Action: ses:SendEmail
+                  Resource: '${param:sesIdentityArn}'
+
+    PostAuthenticationFunctionRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument: *lambdaTrust
+        Policies:
+          - PolicyName: post-authentication
+            PolicyDocument:
+              Statement:
+                - Effect: Allow
+                  Action: [logs:CreateLogStream, logs:PutLogEvents]
+                  Resource: arn:aws:logs:${aws:region}:${aws:accountId}:log-group:/aws/lambda/${self:service}-${sls:stage}-postAuthentication:*
+                - Effect: Allow
+                  Action: secretsmanager:GetSecretValue
+                  Resource: '${param:authDbSecretArn}'
+
+    CustomMessageFunctionRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument: *lambdaTrust
+        Policies:
+          - PolicyName: custom-message
+            PolicyDocument:
+              Statement:
+                - Effect: Allow
+                  Action: [logs:CreateLogStream, logs:PutLogEvents]
+                  Resource: arn:aws:logs:${aws:region}:${aws:accountId}:log-group:/aws/lambda/${self:service}-${sls:stage}-customMessage:*
+                - Effect: Allow
+                  Action: secretsmanager:GetSecretValue
+                  Resource: '${param:authDbSecretArn}'
+
+  Outputs:
+    UserPoolId: { Value: !Ref UserPool }
+    WebClientId: { Value: !Ref WebClient }
+    MobileClientId: { Value: !Ref MobileClient }
+    CognitoDomain: { Value: 'https://${param:cognitoDomainPrefix}.auth.${aws:region}.amazoncognito.com' }
+    PhotoBucketName: { Value: !Ref PhotoBucket }

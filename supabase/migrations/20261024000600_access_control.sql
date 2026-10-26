@@ -121,22 +121,28 @@ $$;
 -- Login lockout (used by the auth flows)
 -- ---------------------------------------------------------------------------------------------
 
--- Registers a failed login. Returns true when this failure locks the account.
-create function app.register_login_failure(p_user_id uuid) returns boolean
+-- Called by the Cognito Pre authentication trigger before every password check. Cognito has no
+-- "failed login" trigger, so failed_login_count counts attempts not yet followed by a success
+-- (Post authentication resets it). Returns:
+--   'allowed'     the attempt may proceed
+--   'locked'      the account is already locked
+--   'just_locked' max_failed_attempts unsuccessful attempts reached: locked now, sessions revoked
+create function app.register_login_attempt(p_user_id uuid) returns text
 language plpgsql volatile security definer
 set search_path = ''
 as $$
 declare
   v_policy app.security_policy;
-  v_count integer;
+  v_user app.users;
 begin
   select * into v_policy from app.security_policy;
+  select * into v_user from app.users where id = p_user_id for update;
 
-  update app.users set failed_login_count = failed_login_count + 1
-  where id = p_user_id
-  returning failed_login_count into v_count;
+  if v_user.locked_until > now() then
+    return 'locked';
+  end if;
 
-  if v_count >= v_policy.max_failed_attempts then
+  if v_user.failed_login_count >= v_policy.max_failed_attempts then
     update app.users
     set failed_login_count = 0,
         locked_until = now() + make_interval(mins => v_policy.lockout_minutes)
@@ -145,9 +151,11 @@ begin
     update app.user_sessions
     set revoked_at = now(), revoked_reason = 'locked'
     where user_id = p_user_id and revoked_at is null;
-    return true;
+    return 'just_locked';
   end if;
-  return false;
+
+  update app.users set failed_login_count = failed_login_count + 1 where id = p_user_id;
+  return 'allowed';
 end
 $$;
 
@@ -165,6 +173,105 @@ language sql stable security definer
 set search_path = ''
 as $$
   select coalesce((select locked_until > now() from app.users where id = p_user_id), false)
+$$;
+
+-- ---------------------------------------------------------------------------------------------
+-- Per-request authentication (called by app_api before every authenticated request, in its own
+-- statement so a revocation done here is committed even when the request is rejected)
+-- ---------------------------------------------------------------------------------------------
+
+create type app.authentication as (
+  outcome text,  -- ok | unknown_user | inactive | locked | role_not_allowed | session_revoked | session_expired
+  user_id uuid,
+  role_code text,
+  session_id uuid,
+  must_change_password boolean,
+  mfa_setup_required boolean
+);
+
+create function app.authenticate(
+  p_cognito_sub text,
+  p_origin_jti text,
+  p_client_type text,
+  p_ip inet default null,
+  p_user_agent text default null
+) returns app.authentication
+language plpgsql volatile security definer
+set search_path = ''
+as $$
+declare
+  v_policy app.security_policy;
+  v_user app.users;
+  v_role app.roles;
+  v_session app.user_sessions;
+  r app.authentication;
+begin
+  select * into v_policy from app.security_policy;
+
+  select u.* into v_user
+  from app.user_identities i
+  join app.users u on u.id = i.user_id
+  where i.provider = 'local' and i.cognito_sub = p_cognito_sub;
+  if not found then
+    r.outcome := 'unknown_user';
+    return r;
+  end if;
+
+  select * into v_role from app.roles where id = v_user.role_id;
+  r.user_id := v_user.id;
+  r.role_code := v_role.code;
+
+  if v_user.status <> 'active' then
+    r.outcome := 'inactive';
+    return r;
+  end if;
+  if v_user.locked_until > now() then
+    r.outcome := 'locked';
+    return r;
+  end if;
+  if p_client_type = 'mobile' and v_role.code <> 'client' then
+    r.outcome := 'role_not_allowed';
+    return r;
+  end if;
+
+  select * into v_session from app.user_sessions where origin_jti = p_origin_jti;
+  if not found then
+    -- Web sessions are created by the login endpoint; mobile ones on first use.
+    if p_client_type <> 'mobile' then
+      r.outcome := 'session_revoked';
+      return r;
+    end if;
+    insert into app.user_sessions (user_id, client_type, origin_jti, ip, user_agent, expires_at)
+    values (v_user.id, 'mobile', p_origin_jti, p_ip, left(p_user_agent, 500),
+            now() + make_interval(hours => v_policy.session_max_hours))
+    returning * into v_session;
+  end if;
+
+  if v_session.user_id <> v_user.id or v_session.client_type <> p_client_type or v_session.revoked_at is not null then
+    r.outcome := 'session_revoked';
+    return r;
+  end if;
+  if v_session.expires_at <= now() then
+    update app.user_sessions set revoked_at = now(), revoked_reason = 'expired' where id = v_session.id;
+    r.outcome := 'session_expired';
+    return r;
+  end if;
+  if v_session.last_seen_at < now() - make_interval(mins => v_policy.idle_timeout_minutes) then
+    update app.user_sessions set revoked_at = now(), revoked_reason = 'idle' where id = v_session.id;
+    r.outcome := 'session_expired';
+    return r;
+  end if;
+
+  update app.user_sessions set last_seen_at = now() where id = v_session.id;
+
+  r.outcome := 'ok';
+  r.session_id := v_session.id;
+  r.must_change_password := v_user.must_change_password
+    or (v_policy.password_max_age_days > 0
+        and v_user.password_changed_at < now() - make_interval(days => v_policy.password_max_age_days));
+  r.mfa_setup_required := v_role.mfa_required and not v_user.mfa_enabled;
+  return r;
+end
 $$;
 
 -- ---------------------------------------------------------------------------------------------
@@ -262,10 +369,12 @@ create policy users_update on app.users for update to app_api
 
 create policy users_auth_read on app.users for select to app_auth using (true);
 create policy users_auth_update on app.users for update to app_auth using (true) with check (true);
+-- Self registration: 'invited' (local, must accept the emailed invitation) or 'active'
+-- (federated, email already verified by the provider). Clients only.
 create policy users_auth_self_register on app.users for insert to app_auth
   with check (
     role_id = (select id from app.roles where code = 'client')
-    and status = 'active'
+    and status in ('invited', 'active')
     and (select self_registration_enabled from app.app_settings)
   );
 
@@ -298,6 +407,14 @@ create policy invitations_insert on app.invitations for insert to app_api
 create policy invitations_update on app.invitations for update to app_api
   using ((select app.has_permission('security.users', 'edit')) and app.can_manage_user(user_id));
 create policy invitations_auth_read on app.invitations for select to app_auth using (true);
+create policy invitations_auth_self_register on app.invitations for insert to app_auth
+  with check (
+    (select self_registration_enabled from app.app_settings)
+    and exists (
+      select 1 from app.users u join app.roles r on r.id = u.role_id
+      where u.id = invitations.user_id and u.status = 'invited' and r.code = 'client'
+    )
+  );
 create policy invitations_auth_update on app.invitations for update to app_auth using (true) with check (true);
 
 -- profiles
@@ -389,11 +506,12 @@ grant execute on function
 to app_api, app_auth;
 
 grant execute on function
-  app.current_permissions(), app.user_effective_permissions(uuid), app.hit_rate_limit(text, integer, integer)
+  app.current_permissions(), app.user_effective_permissions(uuid), app.hit_rate_limit(text, integer, integer),
+  app.authenticate(text, text, text, inet, text)
 to app_api;
 
 grant execute on function
-  app.register_login_failure(uuid), app.register_login_success(uuid), app.is_locked(uuid),
+  app.register_login_attempt(uuid), app.register_login_success(uuid), app.is_locked(uuid),
   app.hit_rate_limit(text, integer, integer)
 to app_auth;
 
@@ -429,7 +547,7 @@ grant select on
   app.roles, app.users, app.user_identities, app.user_sessions, app.invitations,
   app.app_settings, app.security_policy, app.email_templates
 to app_auth;
-grant insert on app.users, app.user_identities, app.user_sessions, app.audit_log to app_auth;
+grant insert on app.users, app.user_identities, app.user_sessions, app.invitations, app.audit_log to app_auth;
 grant update (status, mfa_enabled, must_change_password, password_changed_at) on app.users to app_auth;
 grant update (last_used_at) on app.user_identities to app_auth;
 grant update (last_seen_at, revoked_at, revoked_reason) on app.user_sessions to app_auth;

@@ -67,10 +67,12 @@ select is(
 );
 
 -- Admin A ------------------------------------------------------------------------------------
+reset role;
+select count(*) as total_users from app.users \gset
 set local role app_api;
 select set_config('app.user_id', 'a0000000-0000-0000-0000-00000000000a', true);
 
-select is((select count(*)::integer from app.users), 5, 'an admin with security.users:view reads all users');
+select is((select count(*) from app.users), :total_users::bigint, 'an admin with security.users:view reads all users');
 update app.users set job_title = 'changed' where id = 'a0000000-0000-0000-0000-00000000000b';
 update app.users set job_title = 'Analista' where id = 'c0000000-0000-0000-0000-0000000000c1';
 

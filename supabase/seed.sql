@@ -1,4 +1,4 @@
--- Base data: roles, actions, system menus, base profiles, configuration and the initial superuser.
+-- Base data for every environment: roles, actions, system menus, base profiles and configuration.
 -- Codes must match packages/shared/src/permissions.ts.
 
 -- Roles (fixed) -------------------------------------------------------------------------------
@@ -7,9 +7,8 @@ insert into app.roles (id, code, name, rank, mfa_required) values
   (2, 'admin', '{"es": "Administrador", "en": "Administrator"}', 2, true),
   (3, 'client', '{"es": "Usuario cliente", "en": "Client user"}', 3, false);
 
--- Initial superuser (local only; dev/prod use the install script with a real email) ------------
-insert into app.users (id, email, first_name, last_name, role_id, status, must_change_password)
-values ('00000000-0000-0000-0000-000000000001', 'superadmin@local.test', 'Super', 'Admin', 1, 'active', true);
+-- The initial superuser is created at installation: apps/api/scripts/create-superuser.ts in dev/prod,
+-- seed.local.sql in the local container.
 
 -- Actions -------------------------------------------------------------------------------------
 insert into app.actions (id, code, name, is_standard, sort_order) values

@@ -56,7 +56,9 @@ select throws_ok(
   '22023', null, 'invalid time zone is rejected'
 );
 
--- Last active superuser
+-- Last active superuser (other superusers, e.g. left by API tests, are deactivated in this transaction)
+update app.users set status = 'inactive'
+where role_id = 1 and status = 'active' and id <> '00000000-0000-0000-0000-000000000001';
 set constraints app.users_ensure_active_superuser immediate;
 
 select throws_ok(

@@ -16,5 +16,12 @@
   "devDependencies": {
     "supabase": "2.117.0",
     "typescript": "6.0.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "serverless",
+      "supabase"
+    ]
   }
 }
