@@ -3,9 +3,11 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     include: ['test/**/*.test.ts'],
+    globalSetup: ['test/global-setup.ts'],
     setupFiles: ['test/setup.ts'],
-    // Test files share the local database container (and a few global settings rows).
+    // Test files share the app_test database (and a few global settings rows).
     fileParallelism: false,
+    testTimeout: 20_000,
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts'],

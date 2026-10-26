@@ -14,8 +14,8 @@ import {
   type PhotoStorage,
 } from '../src/lib/ports.js';
 
-/** Local Supabase container (pnpm db:start). Roles enabled by supabase/seed.local.sql. */
-const connection = { host: '127.0.0.1', port: 54322, database: 'postgres', ssl: false };
+/** app_test database in the local container, rebuilt by test/global-setup.ts on every run. */
+const connection = { host: '127.0.0.1', port: 54322, database: 'app_test', ssl: false };
 export const apiDb: Db = createDb({ ...connection, user: 'app_api', password: 'app_api_local' });
 export const authDb: Db = createDb({ ...connection, user: 'app_auth', password: 'app_auth_local' });
 /** Owner connection, only to arrange fixtures and inspect results. */
@@ -40,6 +40,7 @@ export const config: Config = {
   emailFrom: 'no-reply@example.test',
   photoBucket: 'photos',
   turnstileHostname: undefined,
+  federatedProviders: ['google'],
 };
 
 // ---------------------------------------------------------------------------------------------
@@ -142,6 +143,9 @@ export class FakeCognito implements CognitoPort {
   adminMarkEmailVerified: Handler<'adminMarkEmailVerified'> = async (...args) => this.record('adminMarkEmailVerified', args);
   adminGlobalSignOut: Handler<'adminGlobalSignOut'> = async (...args) => this.record('adminGlobalSignOut', args);
   adminLinkProvider: Handler<'adminLinkProvider'> = async (...args) => this.record('adminLinkProvider', args);
+  adminDisableUser: Handler<'adminDisableUser'> = async (...args) => this.record('adminDisableUser', args);
+  adminEnableUser: Handler<'adminEnableUser'> = async (...args) => this.record('adminEnableUser', args);
+  adminResetUserPassword: Handler<'adminResetUserPassword'> = async (...args) => this.record('adminResetUserPassword', args);
 }
 
 export class FakeMailer {
@@ -288,6 +292,7 @@ export function apiEvent(method: string, resource: string, options: EventOptions
 export interface TestResponse {
   status: number;
   body: any;
+  text: string;
   headers: Record<string, string>;
   cookies: string[];
 }
@@ -296,9 +301,11 @@ export function caller(routes: Record<string, Route>) {
   const router = createRouter(routes);
   return async (method: string, resource: string, options: EventOptions = {}): Promise<TestResponse> => {
     const result: APIGatewayProxyResult = await router(apiEvent(method, resource, options));
+    const isJson = String(result.headers?.['Content-Type'] ?? '').startsWith('application/json');
     return {
       status: result.statusCode,
-      body: result.body ? JSON.parse(result.body) : undefined,
+      body: isJson && result.body ? JSON.parse(result.body) : undefined,
+      text: result.body,
       headers: (result.headers ?? {}) as Record<string, string>,
       cookies: (result.multiValueHeaders?.['Set-Cookie'] ?? []) as string[],
     };

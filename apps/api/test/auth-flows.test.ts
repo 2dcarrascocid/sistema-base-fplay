@@ -11,6 +11,21 @@ afterEach(async () => {
   await ownerDb.updateTable('app.app_settings').set({ self_registration_enabled: false }).execute();
 });
 
+describe('public config', () => {
+  it('exposes branding and enabled providers for the login page, nothing else', async () => {
+    const response = await call('GET', '/auth/config');
+    expect(response.body).toEqual({
+      systemName: 'Sistema Base',
+      logoUrl: null,
+      primaryColor: '#1565C0',
+      secondaryColor: '#424242',
+      defaultLocale: 'es',
+      selfRegistration: false,
+      providers: ['google'],
+    });
+  });
+});
+
 describe('federated login (web)', () => {
   async function startLogin(provider = 'google') {
     const response = await call('GET', '/auth/federated/{provider}/start', { pathParameters: { provider } });

@@ -26,6 +26,7 @@ describe('GET /me', () => {
     expect(response.body.menu.map((m: { code: string }) => m.code)).toEqual(['security']);
     expect(response.body.menu[0].children.map((m: { code: string }) => m.code)).toEqual(['security.users', 'security.profiles']);
     expect(response.body.settings.system_name).toBe('Sistema Base');
+    expect(response.body.pending).toEqual({ passwordChange: false, mfaSetup: false });
   });
 
   it('a client without profiles gets an empty menu', async () => {

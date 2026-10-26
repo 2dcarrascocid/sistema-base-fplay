@@ -15,6 +15,8 @@ const ConfigSchema = z.object({
   EMAIL_FROM: z.string().min(3),
   PHOTO_BUCKET: z.string().min(1),
   TURNSTILE_HOSTNAME: z.string().min(1).optional(),
+  /** Comma-separated subset of google,facebook,apple enabled in Cognito. */
+  FEDERATED_PROVIDERS: z.string().default(''),
 });
 
 export type EnvConfig = z.infer<typeof ConfigSchema>;
@@ -30,6 +32,7 @@ export interface Config {
   emailFrom: string;
   photoBucket: string;
   turnstileHostname: string | undefined;
+  federatedProviders: ('google' | 'facebook' | 'apple')[];
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -50,5 +53,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     emailFrom: e.EMAIL_FROM,
     photoBucket: e.PHOTO_BUCKET,
     turnstileHostname: e.TURNSTILE_HOSTNAME,
+    federatedProviders: e.FEDERATED_PROVIDERS.split(',')
+      .map((p) => p.trim())
+      .filter((p): p is 'google' | 'facebook' | 'apple' => p === 'google' || p === 'facebook' || p === 'apple'),
   };
 }

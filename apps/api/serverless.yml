@@ -9,14 +9,18 @@ params:
     googleEnabled: 'false'
     facebookEnabled: 'false'
     appleEnabled: 'false'
+    # Must list the same providers as the *Enabled flags (shown on the login page).
+    federatedProviders: ''
     logRetentionDays: 90
     deletionProtection: INACTIVE
   prod:
     deletionProtection: ACTIVE
     logRetentionDays: 365
-  # Every other parameter (webUrl, cognitoDomainPrefix, mobileRedirectUri, emailFrom, sesIdentityArn,
-  # turnstileHostname, dbHost, dbPort, dbName, apiDbSecretArn, authDbSecretArn, appSecretArn,
-  # idpSecretName) is set per stage in the Serverless Dashboard or with --param="name=value".
+  # Every other parameter is set per stage in the Serverless Dashboard or with --param="name=value":
+  #   webDomain (e.g. app.example.cl), certificateArn (ACM, us-east-1, for webDomain),
+  #   cognitoDomainPrefix, mobileRedirectUri, emailFrom, sesIdentityArn, turnstileHostname,
+  #   dbHost, dbPort, dbName, apiDbSecretArn, authDbSecretArn, appSecretArn, originSecretArn, idpSecretName.
+  # The stack must be deployed in us-east-1: the CloudFront WAF and certificate live there.
 
 provider:
   name: aws
@@ -36,7 +40,7 @@ provider:
     COGNITO_WEB_CLIENT_ID: !Ref WebClient
     COGNITO_MOBILE_CLIENT_ID: !Ref MobileClient
     COGNITO_DOMAIN: https://${param:cognitoDomainPrefix}.auth.${aws:region}.amazoncognito.com
-    WEB_URL: ${param:webUrl}
+    WEB_URL: https://${param:webDomain}
     DB_HOST: ${param:dbHost}
     DB_PORT: ${param:dbPort}
     DB_NAME: ${param:dbName}
@@ -44,6 +48,7 @@ provider:
     EMAIL_FROM: ${param:emailFrom}
     PHOTO_BUCKET: !Ref PhotoBucket
     TURNSTILE_HOSTNAME: ${param:turnstileHostname}
+    FEDERATED_PROVIDERS: ${param:federatedProviders}
 
 build:
   esbuild:
@@ -61,8 +66,10 @@ functions:
     environment:
       DB_SECRET_ARN: ${param:authDbSecretArn}
       APP_SECRET_ARN: ${param:appSecretArn}
+      ORIGIN_SECRET_ARN: ${param:originSecretArn}
       NEEDS_WEB_CLIENT_SECRET: 'true'
     events:
+      - http: { path: /auth/config, method: get }
       - http: { path: /auth/login, method: post }
       - http: { path: /auth/challenge, method: post }
       - http: { path: /auth/mfa/setup, method: post }
@@ -80,6 +87,7 @@ functions:
     role: MeFunctionRole
     environment:
       DB_SECRET_ARN: ${param:apiDbSecretArn}
+      ORIGIN_SECRET_ARN: ${param:originSecretArn}
     events:
       - http: { path: /me, method: get }
       - http: { path: /me, method: patch }
@@ -92,6 +100,69 @@ functions:
       - http: { path: /me/mfa, method: delete }
       - http: { path: /me/photo/upload-url, method: post }
       - http: { path: /me/photo, method: put }
+
+  admin:
+    handler: src/admin/index.handler
+    role: AdminFunctionRole
+    environment:
+      DB_SECRET_ARN: ${param:apiDbSecretArn}
+      ORIGIN_SECRET_ARN: ${param:originSecretArn}
+    events:
+      - http: { path: /admin/roles, method: get }
+      - http: { path: /admin/users, method: get }
+      - http: { path: /admin/users, method: post }
+      - http: { path: /admin/users/export, method: get }
+      - http: { path: '/admin/users/{id}', method: get }
+      - http: { path: '/admin/users/{id}', method: patch }
+      - http: { path: '/admin/users/{id}/permissions', method: get }
+      - http: { path: '/admin/users/{id}/profiles', method: put }
+      - http: { path: '/admin/users/{id}/activate', method: post }
+      - http: { path: '/admin/users/{id}/deactivate', method: post }
+      - http: { path: '/admin/users/{id}/unlock', method: post }
+      - http: { path: '/admin/users/{id}/reset-password', method: post }
+      - http: { path: '/admin/users/{id}/revoke-sessions', method: post }
+      - http: { path: '/admin/users/{id}/invitation', method: post }
+      - http: { path: /admin/permission-catalog, method: get }
+      - http: { path: /admin/profiles, method: get }
+      - http: { path: /admin/profiles, method: post }
+      - http: { path: '/admin/profiles/{id}', method: get }
+      - http: { path: '/admin/profiles/{id}', method: patch }
+      - http: { path: '/admin/profiles/{id}/users', method: get }
+      - http: { path: '/admin/profiles/{id}/permissions', method: put }
+      - http: { path: '/admin/profiles/{id}/duplicate', method: post }
+      - http: { path: '/admin/profiles/{id}/activate', method: post }
+      - http: { path: '/admin/profiles/{id}/deactivate', method: post }
+
+  config:
+    handler: src/config/index.handler
+    role: ConfigFunctionRole
+    environment:
+      DB_SECRET_ARN: ${param:apiDbSecretArn}
+      ORIGIN_SECRET_ARN: ${param:originSecretArn}
+    events:
+      - http: { path: /config/settings, method: get }
+      - http: { path: /config/settings, method: put }
+      - http: { path: /config/settings/logo/upload-url, method: post }
+      - http: { path: /config/settings/logo, method: put }
+      - http: { path: /config/menus, method: get }
+      - http: { path: /config/menus, method: post }
+      - http: { path: '/config/menus/{id}', method: patch }
+      - http: { path: '/config/menus/{id}/actions', method: put }
+      - http: { path: /config/menus/reorder, method: post }
+      - http: { path: /config/actions, method: get }
+      - http: { path: /config/actions, method: post }
+      - http: { path: '/config/actions/{id}', method: patch }
+      - http: { path: /config/security-policy, method: get }
+      - http: { path: /config/security-policy, method: put }
+      - http: { path: /config/email-templates, method: get }
+      - http: { path: '/config/email-templates/{id}', method: get }
+      - http: { path: '/config/email-templates/{id}', method: put }
+      - http: { path: /config/email-templates/preview, method: post }
+      - http: { path: /audit/events, method: get }
+      - http: { path: /audit/events/export, method: get }
+      - http: { path: '/audit/events/{id}', method: get }
+      - http: { path: /audit/event-types, method: get }
+      - http: { path: /audit/integrity, method: get }
 
   preSignUp:
     handler: src/triggers/index.preSignUpHandler
@@ -141,14 +212,15 @@ resources:
           AllowAdminCreateUserOnly: true
         AccountRecoverySetting:
           RecoveryMechanisms: [{ Name: verified_email, Priority: 1 }]
-        # Initial values; the security policy maintainer (phase 4) keeps them in sync with app.security_policy.
+        # Fixed floor. The configurable policy (app.security_policy) is enforced by the backend on every
+        # password it sets; Cognito must never reject a password that policy accepts (see spec 04).
         Policies:
           PasswordPolicy:
             MinimumLength: 12
-            RequireUppercase: true
-            RequireLowercase: true
-            RequireNumbers: true
-            RequireSymbols: true
+            RequireUppercase: false
+            RequireLowercase: false
+            RequireNumbers: false
+            RequireSymbols: false
             TemporaryPasswordValidityDays: 3
         MfaConfiguration: 'OPTIONAL'
         EnabledMfas: [SOFTWARE_TOKEN_MFA]
@@ -234,8 +306,8 @@ resources:
         AllowedOAuthFlowsUserPoolClient: true
         AllowedOAuthFlows: [code]
         AllowedOAuthScopes: [openid, email, profile, aws.cognito.signin.user.admin]
-        CallbackURLs: ['${param:webUrl}/api/auth/federated/callback']
-        LogoutURLs: ['${param:webUrl}/login']
+        CallbackURLs: ['https://${param:webDomain}/api/auth/federated/callback']
+        LogoutURLs: ['https://${param:webDomain}/login']
         SupportedIdentityProviders:
           - !If [NoFederated, COGNITO, !Ref AWS::NoValue]
           - !If [EnableGoogle, !Ref GoogleIdentityProvider, !Ref AWS::NoValue]
@@ -243,7 +315,8 @@ resources:
           - !If [EnableApple, !Ref AppleIdentityProvider, !Ref AWS::NoValue]
         AccessTokenValidity: 10
         IdTokenValidity: 10
-        RefreshTokenValidity: 12
+        # Maximum allowed by the policy; app.authenticate() enforces the configured session length and idle time.
+        RefreshTokenValidity: 720
         TokenValidityUnits: { AccessToken: minutes, IdToken: minutes, RefreshToken: hours }
         AuthSessionValidity: 3
         EnableTokenRevocation: true
@@ -269,7 +342,8 @@ resources:
           - !If [EnableApple, !Ref AppleIdentityProvider, !Ref AWS::NoValue]
         AccessTokenValidity: 10
         IdTokenValidity: 10
-        RefreshTokenValidity: 12
+        # Maximum allowed by the policy; app.authenticate() enforces the configured session length and idle time.
+        RefreshTokenValidity: 720
         TokenValidityUnits: { AccessToken: minutes, IdToken: minutes, RefreshToken: hours }
         AuthSessionValidity: 3
         EnableTokenRevocation: true
@@ -306,7 +380,7 @@ resources:
 
     # ------------------------------------------------------------------------------------------
     # AWS WAF on the Cognito User Pool (protects the hosted login used by the mobile app).
-    # The web/API WebACL is attached to CloudFront in phase 3.
+    # The web and the API are protected by WebAcl on CloudFront.
     # ------------------------------------------------------------------------------------------
     CognitoWebAcl:
       Type: AWS::WAFv2::WebACL
@@ -360,7 +434,7 @@ resources:
           Rules: [{ ObjectOwnership: BucketOwnerEnforced }]
         CorsConfiguration:
           CorsRules:
-            - AllowedOrigins: ['${param:webUrl}']
+            - AllowedOrigins: ['https://${param:webDomain}']
               AllowedMethods: [GET, POST]
               AllowedHeaders: ['*']
               MaxAge: 3000
@@ -395,10 +469,13 @@ resources:
                   Resource: arn:aws:logs:${aws:region}:${aws:accountId}:log-group:/aws/lambda/${self:service}-${sls:stage}-auth:*
                 - Effect: Allow
                   Action: secretsmanager:GetSecretValue
-                  Resource: ['${param:authDbSecretArn}', '${param:appSecretArn}']
+                  Resource: ['${param:authDbSecretArn}', '${param:appSecretArn}', '${param:originSecretArn}']
                 - Effect: Allow
                   Action: ses:SendEmail
                   Resource: '${param:sesIdentityArn}'
+                - Effect: Allow
+                  Action: s3:GetObject
+                  Resource: !Join ['', [!GetAtt PhotoBucket.Arn, '/branding/*']]
 
     AuthFunctionCognitoPolicy:
       Type: AWS::IAM::Policy
@@ -430,10 +507,66 @@ resources:
                   Resource: arn:aws:logs:${aws:region}:${aws:accountId}:log-group:/aws/lambda/${self:service}-${sls:stage}-me:*
                 - Effect: Allow
                   Action: secretsmanager:GetSecretValue
-                  Resource: '${param:apiDbSecretArn}'
+                  Resource: ['${param:apiDbSecretArn}', '${param:originSecretArn}']
                 - Effect: Allow
                   Action: [s3:PutObject, s3:GetObject]
                   Resource: !Join ['', [!GetAtt PhotoBucket.Arn, '/users/*']]
+                - Effect: Allow
+                  Action: s3:GetObject
+                  Resource: !Join ['', [!GetAtt PhotoBucket.Arn, '/branding/*']]
+
+    ConfigFunctionRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument: *lambdaTrust
+        Policies:
+          - PolicyName: config
+            PolicyDocument:
+              Statement:
+                - Effect: Allow
+                  Action: [logs:CreateLogStream, logs:PutLogEvents]
+                  Resource: arn:aws:logs:${aws:region}:${aws:accountId}:log-group:/aws/lambda/${self:service}-${sls:stage}-config:*
+                - Effect: Allow
+                  Action: secretsmanager:GetSecretValue
+                  Resource: ['${param:apiDbSecretArn}', '${param:originSecretArn}']
+                - Effect: Allow
+                  Action: [s3:PutObject, s3:GetObject]
+                  Resource: !Join ['', [!GetAtt PhotoBucket.Arn, '/branding/*']]
+
+    AdminFunctionRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument: *lambdaTrust
+        Policies:
+          - PolicyName: admin
+            PolicyDocument:
+              Statement:
+                - Effect: Allow
+                  Action: [logs:CreateLogStream, logs:PutLogEvents]
+                  Resource: arn:aws:logs:${aws:region}:${aws:accountId}:log-group:/aws/lambda/${self:service}-${sls:stage}-admin:*
+                - Effect: Allow
+                  Action: secretsmanager:GetSecretValue
+                  Resource: ['${param:apiDbSecretArn}', '${param:originSecretArn}']
+                - Effect: Allow
+                  Action: ses:SendEmail
+                  Resource: '${param:sesIdentityArn}'
+
+    AdminFunctionCognitoPolicy:
+      Type: AWS::IAM::Policy
+      Properties:
+        PolicyName: admin-cognito
+        Roles: [!Ref AdminFunctionRole]
+        PolicyDocument:
+          Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:AdminCreateUser
+                - cognito-idp:AdminDeleteUser
+                - cognito-idp:AdminDisableUser
+                - cognito-idp:AdminEnableUser
+                - cognito-idp:AdminResetUserPassword
+                - cognito-idp:AdminUserGlobalSignOut
+              Resource: !GetAtt UserPool.Arn
 
     PreSignUpFunctionRole:
       Type: AWS::IAM::Role
@@ -510,9 +643,213 @@ resources:
                   Action: secretsmanager:GetSecretValue
                   Resource: '${param:authDbSecretArn}'
 
+    # ------------------------------------------------------------------------------------------
+    # Web: private S3 bucket behind CloudFront (OAC). CloudFront also routes /api/* to API Gateway,
+    # adding the secret X-Origin-Verify header the Lambdas require, so the web and the API share
+    # one origin and execute-api cannot be called directly.
+    # ------------------------------------------------------------------------------------------
+    WebBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketEncryption:
+          ServerSideEncryptionConfiguration: [{ ServerSideEncryptionByDefault: { SSEAlgorithm: AES256 } }]
+        PublicAccessBlockConfiguration:
+          BlockPublicAcls: true
+          BlockPublicPolicy: true
+          IgnorePublicAcls: true
+          RestrictPublicBuckets: true
+        OwnershipControls:
+          Rules: [{ ObjectOwnership: BucketOwnerEnforced }]
+
+    WebOriginAccessControl:
+      Type: AWS::CloudFront::OriginAccessControl
+      Properties:
+        OriginAccessControlConfig:
+          Name: ${self:service}-${sls:stage}-web
+          OriginAccessControlOriginType: s3
+          SigningBehavior: always
+          SigningProtocol: sigv4
+
+    WebBucketPolicy:
+      Type: AWS::S3::BucketPolicy
+      Properties:
+        Bucket: !Ref WebBucket
+        PolicyDocument:
+          Statement:
+            - Sid: CloudFrontRead
+              Effect: Allow
+              Principal: { Service: cloudfront.amazonaws.com }
+              Action: s3:GetObject
+              Resource: !Join ['', [!GetAtt WebBucket.Arn, '/*']]
+              Condition:
+                StringEquals:
+                  AWS:SourceArn: !Join ['', ['arn:aws:cloudfront::', !Ref AWS::AccountId, ':distribution/', !Ref WebDistribution]]
+            - Sid: DenyInsecureTransport
+              Effect: Deny
+              Principal: '*'
+              Action: 's3:*'
+              Resource: [!GetAtt WebBucket.Arn, !Join ['', [!GetAtt WebBucket.Arn, '/*']]]
+              Condition: { Bool: { 'aws:SecureTransport': 'false' } }
+
+    # SPA routing: paths without a file extension serve index.html.
+    SpaRewriteFunction:
+      Type: AWS::CloudFront::Function
+      Properties:
+        Name: ${self:service}-${sls:stage}-spa
+        AutoPublish: true
+        FunctionConfig: { Comment: SPA routing, Runtime: cloudfront-js-2.0 }
+        FunctionCode: |
+          function handler(event) {
+            var request = event.request;
+            if (!/\.[a-zA-Z0-9]+$/.test(request.uri)) request.uri = '/index.html';
+            return request;
+          }
+
+    SecurityHeadersPolicy:
+      Type: AWS::CloudFront::ResponseHeadersPolicy
+      Properties:
+        ResponseHeadersPolicyConfig:
+          Name: ${self:service}-${sls:stage}-security
+          SecurityHeadersConfig:
+            StrictTransportSecurity: { AccessControlMaxAgeSec: 63072000, IncludeSubdomains: true, Preload: true, Override: true }
+            ContentTypeOptions: { Override: true }
+            FrameOptions: { FrameOption: DENY, Override: true }
+            ReferrerPolicy: { ReferrerPolicy: strict-origin-when-cross-origin, Override: true }
+            ContentSecurityPolicy:
+              Override: true
+              ContentSecurityPolicy: !Join
+                - ''
+                - - "default-src 'self'; script-src 'self' https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; "
+                  - "style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: https://"
+                  - !GetAtt PhotoBucket.RegionalDomainName
+                  - "; connect-src 'self' https://"
+                  - !GetAtt PhotoBucket.RegionalDomainName
+                  - "; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
+          CustomHeadersConfig:
+            Items:
+              - { Header: Permissions-Policy, Value: 'camera=(), microphone=(), geolocation=(), payment=()', Override: true }
+              - { Header: Cross-Origin-Opener-Policy, Value: same-origin, Override: true }
+
+    # /api/*: never cached; Authorization is part of the (zero-TTL) cache key so it reaches the origin.
+    ApiCachePolicy:
+      Type: AWS::CloudFront::CachePolicy
+      Properties:
+        CachePolicyConfig:
+          Name: ${self:service}-${sls:stage}-api
+          MinTTL: 0
+          DefaultTTL: 0
+          MaxTTL: 1
+          ParametersInCacheKeyAndForwardedToOrigin:
+            EnableAcceptEncodingGzip: false
+            HeadersConfig: { HeaderBehavior: whitelist, Headers: [Authorization] }
+            CookiesConfig: { CookieBehavior: none }
+            QueryStringsConfig: { QueryStringBehavior: none }
+
+    ApiOriginRequestPolicy:
+      Type: AWS::CloudFront::OriginRequestPolicy
+      Properties:
+        OriginRequestPolicyConfig:
+          Name: ${self:service}-${sls:stage}-api
+          HeadersConfig:
+            HeaderBehavior: whitelist
+            Headers: [Origin, Content-Type, Accept, User-Agent, X-CSRF-Token, CloudFront-Viewer-Address]
+          CookiesConfig: { CookieBehavior: all }
+          QueryStringsConfig: { QueryStringBehavior: all }
+
+    WebDistribution:
+      Type: AWS::CloudFront::Distribution
+      Properties:
+        DistributionConfig:
+          Enabled: true
+          Aliases: ['${param:webDomain}']
+          ViewerCertificate: { AcmCertificateArn: '${param:certificateArn}', SslSupportMethod: sni-only, MinimumProtocolVersion: TLSv1.2_2021 }
+          HttpVersion: http2and3
+          DefaultRootObject: index.html
+          WebACLId: !GetAtt WebAcl.Arn
+          Origins:
+            - Id: web
+              DomainName: !GetAtt WebBucket.RegionalDomainName
+              OriginAccessControlId: !GetAtt WebOriginAccessControl.Id
+              S3OriginConfig: { OriginAccessIdentity: '' }
+            - Id: api
+              DomainName: !Join ['', [!Ref ApiGatewayRestApi, '.execute-api.', !Ref AWS::Region, '.amazonaws.com']]
+              OriginPath: /${sls:stage}
+              CustomOriginConfig: { OriginProtocolPolicy: https-only, OriginSSLProtocols: [TLSv1.2] }
+              OriginCustomHeaders:
+                - HeaderName: X-Origin-Verify
+                  HeaderValue: '{{resolve:secretsmanager:${param:originSecretArn}:SecretString:value}}'
+          DefaultCacheBehavior:
+            TargetOriginId: web
+            ViewerProtocolPolicy: redirect-to-https
+            Compress: true
+            CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6 # Managed-CachingOptimized
+            ResponseHeadersPolicyId: !Ref SecurityHeadersPolicy
+            FunctionAssociations: [{ EventType: viewer-request, FunctionARN: !GetAtt SpaRewriteFunction.FunctionMetadata.FunctionARN }]
+          CacheBehaviors:
+            - PathPattern: /api/*
+              TargetOriginId: api
+              ViewerProtocolPolicy: https-only
+              AllowedMethods: [GET, HEAD, OPTIONS, PUT, PATCH, POST, DELETE]
+              CachePolicyId: !Ref ApiCachePolicy
+              OriginRequestPolicyId: !Ref ApiOriginRequestPolicy
+              ResponseHeadersPolicyId: !Ref SecurityHeadersPolicy
+
+    # Global WAF for the web and the API (scope CLOUDFRONT requires us-east-1).
+    WebAcl:
+      Type: AWS::WAFv2::WebACL
+      Properties:
+        Name: ${self:service}-${sls:stage}-web
+        Scope: CLOUDFRONT
+        DefaultAction: { Allow: {} }
+        VisibilityConfig: { SampledRequestsEnabled: true, CloudWatchMetricsEnabled: true, MetricName: web-acl }
+        Rules:
+          - Name: common
+            Priority: 1
+            OverrideAction: { None: {} }
+            Statement: { ManagedRuleGroupStatement: { VendorName: AWS, Name: AWSManagedRulesCommonRuleSet } }
+            VisibilityConfig: { SampledRequestsEnabled: true, CloudWatchMetricsEnabled: true, MetricName: web-common }
+          - Name: known-bad-inputs
+            Priority: 2
+            OverrideAction: { None: {} }
+            Statement: { ManagedRuleGroupStatement: { VendorName: AWS, Name: AWSManagedRulesKnownBadInputsRuleSet } }
+            VisibilityConfig: { SampledRequestsEnabled: true, CloudWatchMetricsEnabled: true, MetricName: web-known-bad-inputs }
+          - Name: sqli
+            Priority: 3
+            OverrideAction: { None: {} }
+            Statement: { ManagedRuleGroupStatement: { VendorName: AWS, Name: AWSManagedRulesSQLiRuleSet } }
+            VisibilityConfig: { SampledRequestsEnabled: true, CloudWatchMetricsEnabled: true, MetricName: web-sqli }
+          - Name: ip-reputation
+            Priority: 4
+            OverrideAction: { None: {} }
+            Statement: { ManagedRuleGroupStatement: { VendorName: AWS, Name: AWSManagedRulesAmazonIpReputationList } }
+            VisibilityConfig: { SampledRequestsEnabled: true, CloudWatchMetricsEnabled: true, MetricName: web-ip-reputation }
+          - Name: rate-limit-auth
+            Priority: 5
+            Action: { Block: {} }
+            Statement:
+              RateBasedStatement:
+                Limit: 100
+                EvaluationWindowSec: 300
+                AggregateKeyType: IP
+                ScopeDownStatement:
+                  ByteMatchStatement:
+                    FieldToMatch: { UriPath: {} }
+                    PositionalConstraint: STARTS_WITH
+                    SearchString: /api/auth/
+                    TextTransformations: [{ Priority: 0, Type: LOWERCASE }]
+            VisibilityConfig: { SampledRequestsEnabled: true, CloudWatchMetricsEnabled: true, MetricName: web-rate-auth }
+          - Name: rate-limit-ip
+            Priority: 6
+            Action: { Block: {} }
+            Statement: { RateBasedStatement: { Limit: 2000, EvaluationWindowSec: 300, AggregateKeyType: IP } }
+            VisibilityConfig: { SampledRequestsEnabled: true, CloudWatchMetricsEnabled: true, MetricName: web-rate-ip }
+
   Outputs:
     UserPoolId: { Value: !Ref UserPool }
     WebClientId: { Value: !Ref WebClient }
     MobileClientId: { Value: !Ref MobileClient }
     CognitoDomain: { Value: 'https://${param:cognitoDomainPrefix}.auth.${aws:region}.amazoncognito.com' }
     PhotoBucketName: { Value: !Ref PhotoBucket }
+    WebBucketName: { Value: !Ref WebBucket }
+    WebDistributionId: { Value: !Ref WebDistribution }
+    WebDistributionDomain: { Value: !GetAtt WebDistribution.DomainName }

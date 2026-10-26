@@ -6,13 +6,13 @@
 const SENSITIVE_KEY = /pass(word)?|token|secret|authorization|cookie|session|otp|^code$|verifier|key$/i;
 const MAX_DEPTH = 6;
 
-export function redact(value: unknown, depth = 0): unknown {
+export function redact(value: unknown, depth = 0, sensitive: RegExp = SENSITIVE_KEY): unknown {
   if (depth > MAX_DEPTH) return '[TRUNCATED]';
-  if (Array.isArray(value)) return value.map((v) => redact(v, depth + 1));
+  if (Array.isArray(value)) return value.map((v) => redact(v, depth + 1, sensitive));
   if (value instanceof Error) return { name: value.name, message: value.message };
   if (value && typeof value === 'object') {
     return Object.fromEntries(
-      Object.entries(value).map(([k, v]) => [k, SENSITIVE_KEY.test(k) ? '[REDACTED]' : redact(v, depth + 1)]),
+      Object.entries(value).map(([k, v]) => [k, sensitive.test(k) ? '[REDACTED]' : redact(v, depth + 1, sensitive)]),
     );
   }
   return value;

@@ -274,3 +274,34 @@ describe('config', () => {
     expect(() => loadConfig({})).toThrow();
   });
 });
+
+describe('origin verification, database errors and CSV', async () => {
+  const { mapDbError } = await import('../src/lib/db-errors.js');
+  const { csvCell, toCsv } = await import('../src/lib/csv.js');
+
+  it('refuses requests without the CloudFront origin secret when configured', async () => {
+    const router = createRouter({ 'GET /ok': async () => json({ ok: true }) }, { originSecret: 's3cret' });
+    expect((await router(apiEvent('GET', '/ok'))).statusCode).toBe(403);
+    expect((await router(apiEvent('GET', '/ok', { headers: { 'X-Origin-Verify': 'wrong' } }))).statusCode).toBe(403);
+    expect((await router(apiEvent('GET', '/ok', { headers: { 'X-Origin-Verify': 's3cret' } }))).statusCode).toBe(200);
+  });
+
+  it('maps rule violations from PostgreSQL to client errors', () => {
+    expect(mapDbError({ code: '42501' })?.status).toBe(403);
+    expect(mapDbError({ code: '23505', constraint: 'users_email_key' })?.code).toBe('EMAIL_TAKEN');
+    expect(mapDbError({ code: '23505', constraint: 'other' })?.code).toBe('CONFLICT');
+    expect(mapDbError({ code: '23514', message: 'at least one active superuser is required' })?.code).toBe('LAST_SUPERUSER');
+    expect(mapDbError({ code: '23514', message: 'other check' })).toBeNull();
+    expect(mapDbError(null)).toBeNull();
+  });
+
+  it('writes CSV cells safely', () => {
+    expect(csvCell('=SUM(A1)')).toBe("'=SUM(A1)");
+    expect(csvCell('+1')).toBe("'+1");
+    expect(csvCell('a;b')).toBe('"a;b"');
+    expect(csvCell('say "hi"')).toBe('"say ""hi"""');
+    expect(csvCell(null)).toBe('');
+    expect(csvCell(new Date('2026-01-02T03:04:05Z'))).toBe('2026-01-02T03:04:05.000Z');
+    expect(toCsv(['a'], [[1]])).toBe('\uFEFFa\r\n1\r\n');
+  });
+});

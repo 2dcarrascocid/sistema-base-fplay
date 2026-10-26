@@ -11,16 +11,20 @@ import { getJsonSecret, jwtVerifier, s3PhotoStorage, sesMailer } from './service
  * Secrets (Secrets Manager, created per stage, see apps/api/README.md):
  *  - DB_SECRET_ARN  → {"username", "password", "ca"?}   one per database role (app_api / app_auth)
  *  - APP_SECRET_ARN → {"turnstileSecret", "encryptionKey"} only for the public auth Lambda
+ *  - ORIGIN_SECRET_ARN → {"value"} header CloudFront sends as X-Origin-Verify (API Lambdas)
  * The web client secret is read from Cognito (DescribeUserPoolClient) and never stored.
  */
 async function buildDeps(): Promise<Deps> {
   const config = loadConfig();
   const appSecretArn = process.env['APP_SECRET_ARN'];
-  const [dbSecret, appSecret, webClientSecret] = await Promise.all([
+  const originSecretArn = process.env['ORIGIN_SECRET_ARN'];
+  const [dbSecret, appSecret, webClientSecret, originSecret] = await Promise.all([
     getJsonSecret(required('DB_SECRET_ARN')),
     appSecretArn ? getJsonSecret(appSecretArn) : Promise.resolve({} as Record<string, string>),
     process.env['NEEDS_WEB_CLIENT_SECRET'] === 'true' ? fetchWebClientSecret(config) : Promise.resolve(''),
+    originSecretArn ? getJsonSecret(originSecretArn).then((secret) => secret['value']) : Promise.resolve(undefined),
   ]);
+  if (originSecretArn && !originSecret) throw new Error('origin secret is empty');
 
   const keyMaterial = appSecret['encryptionKey'] ?? '';
   if (appSecretArn && keyMaterial.length < 32) throw new Error('encryptionKey must have at least 32 characters');
@@ -40,6 +44,7 @@ async function buildDeps(): Promise<Deps> {
     captcha: turnstileVerifier(appSecret['turnstileSecret'] ?? '', config.turnstileHostname),
     breached: pwnedPasswordsChecker(),
     encryptionKey: sha256(keyMaterial),
+    originSecret,
   };
 }
 

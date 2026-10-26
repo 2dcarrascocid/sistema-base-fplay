@@ -22,4 +22,6 @@ export interface Deps {
   breached: BreachedPasswordChecker;
   /** 32-byte AES key for sealed challenge/OAuth state (SHA-256 of the secret key material). */
   encryptionKey: Buffer;
+  /** Value CloudFront sends as X-Origin-Verify; undefined disables the check (tests, local dev). */
+  originSecret?: string | undefined;
 }

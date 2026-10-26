@@ -26,7 +26,8 @@ Serverless Framework v4 exige iniciar sesión (`serverless login`) o una licenci
 ### 1. Requisitos previos por stage (una vez)
 
 1. **Base de datos (Supabase alojado, Data API desactivada).**
-   - Aplica las migraciones y `seed.sql` (sin `seed.local.sql`) con `supabase db push`.
+   - Aplica las migraciones con `supabase db push` (**nunca** con `--include-seed`: cargaría también `seed.local.sql`, con el superusuario y las contraseñas locales).
+   - Carga la configuración base una sola vez: `psql "<url de conexión>" -v ON_ERROR_STOP=1 -f supabase/seed.sql`.
    - Habilita los roles con contraseñas generadas:
      ```sql
      alter role app_api with login password '<generada>';
@@ -59,3 +60,21 @@ El script imprime un enlace de activación de un solo uso, válido 72 h. Entrég
 
 En cada proveedor (Google, Facebook, Apple) registra como URL de redirección:
 `https://<cognitoDomainPrefix>.auth.<region>.amazoncognito.com/oauth2/idpresponse`
+
+### Web (Fase 3)
+
+Requisitos adicionales por stage:
+- certificado ACM en us-east-1 para `webDomain`;
+- secreto `base-fairplay/<stage>/origin` con `{"value":"<≥32 caracteres aleatorios>"}`;
+- parámetros `webDomain`, `certificateArn` y `originSecretArn`.
+
+El stack debe desplegarse en us-east-1, porque el WAF de CloudFront y el certificado viven ahí.
+
+```bash
+pnpm --filter @base/api deploy:dev
+VITE_TURNSTILE_SITE_KEY=<site key> pnpm --filter @base/web build
+aws s3 sync apps/web/dist s3://<WebBucketName> --delete
+aws cloudfront create-invalidation --distribution-id <WebDistributionId> --paths '/*'
+```
+
+Por último, apunta el DNS de `webDomain` a `WebDistributionDomain` (salida del stack).

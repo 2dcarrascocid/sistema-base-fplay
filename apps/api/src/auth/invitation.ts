@@ -1,14 +1,13 @@
 import { PASSWORD_MAX_LENGTH } from '@base/shared';
 import { z } from 'zod';
 import { audit, originOf } from '../lib/audit.js';
-import { randomToken, sha256 } from '../lib/crypto.js';
-import type { Tx } from '../lib/db.js';
+import { sha256 } from '../lib/crypto.js';
 import type { Deps } from '../lib/deps.js';
-import { formatDateFor, sendTemplatedEmail, type Recipient } from '../lib/email.js';
 import { badRequest, notFound } from '../lib/errors.js';
+import { createInvitation } from '../lib/invitations.js';
 import { json, noContent, parse, type HttpResponse, type Request } from '../lib/http.js';
 import { logger } from '../lib/logger.js';
-import { assertAcceptablePassword, enforceRateLimit, loadSecurityPolicy, requireCaptcha } from '../lib/security.js';
+import { assertAcceptablePassword, enforceRateLimit, requireCaptcha } from '../lib/security.js';
 
 const captchaToken = z.string().min(1).max(2048);
 const name = z.string().trim().min(1).max(100);
@@ -26,25 +25,6 @@ const RegisterBody = z.object({
   secondLastName: name.optional(),
   captchaToken,
 });
-
-/**
- * Creates an invitation and emails the activation link. The token travels in the URL fragment
- * (#token=...), which browsers never send to servers, and only its SHA-256 is stored.
- */
-export async function createInvitation(
-  deps: Pick<Deps, 'config' | 'mailer'>,
-  tx: Tx,
-  user: Recipient & { id: string },
-): Promise<void> {
-  const policy = await loadSecurityPolicy(tx);
-  const token = randomToken();
-  const expiresAt = new Date(Date.now() + policy.invitation_ttl_hours * 3_600_000);
-  await tx.insertInto('app.invitations').values({ user_id: user.id, token_hash: sha256(token), expires_at: expiresAt }).execute();
-  await sendTemplatedEmail(tx, deps.mailer, 'invitation', user, {
-    link: `${deps.config.webUrl}/activate#token=${token}`,
-    expires_at: await formatDateFor(tx, user, expiresAt),
-  });
-}
 
 /** POST /auth/invitations/accept — the invited user chooses a password and the account becomes active. */
 export async function accept(deps: Deps, request: Request): Promise<HttpResponse> {

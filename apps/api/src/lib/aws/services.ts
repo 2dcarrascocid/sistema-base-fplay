@@ -71,7 +71,9 @@ export function s3PhotoStorage(config: Config): PhotoStorage {
       }
     },
     async downloadUrl(key) {
-      return getSignedUrl(client, new GetObjectCommand({ Bucket, Key: key }), { expiresIn: URL_TTL_SECONDS });
+      // attachment: <img> still renders it, but opening the URL directly never runs an SVG's scripts.
+      const command = new GetObjectCommand({ Bucket, Key: key, ResponseContentDisposition: 'attachment' });
+      return getSignedUrl(client, command, { expiresIn: URL_TTL_SECONDS });
     },
   };
 }

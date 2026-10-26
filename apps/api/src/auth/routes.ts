@@ -4,11 +4,13 @@ import { callback, start } from './federated.js';
 import { accept, register } from './invitation.js';
 import { challenge, login, mfaSetup } from './login.js';
 import { forgot, reset } from './password.js';
+import { publicConfig } from './public-config.js';
 import { logout, refresh } from './session.js';
 
 /** Public auth endpoints (database role: app_auth). */
 export function authRoutes(deps: Deps): Record<string, Route> {
   return {
+    'GET /auth/config': () => publicConfig(deps),
     'POST /auth/login': (request) => login(deps, request),
     'POST /auth/challenge': (request) => challenge(deps, request),
     'POST /auth/mfa/setup': (request) => mfaSetup(deps, request),

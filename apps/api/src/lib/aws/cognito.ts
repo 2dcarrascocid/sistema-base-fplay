@@ -1,7 +1,10 @@
 import {
   AdminCreateUserCommand,
   AdminDeleteUserCommand,
+  AdminDisableUserCommand,
+  AdminEnableUserCommand,
   AdminLinkProviderForUserCommand,
+  AdminResetUserPasswordCommand,
   AdminSetUserPasswordCommand,
   AdminUpdateUserAttributesCommand,
   AdminUserGlobalSignOutCommand,
@@ -253,6 +256,18 @@ export function cognitoAdapter(config: Config, webClientSecret: string): Cognito
           }),
         ),
       );
+    },
+
+    async adminDisableUser(username) {
+      await call(() => client.send(new AdminDisableUserCommand({ UserPoolId: userPoolId, Username: username })));
+    },
+
+    async adminEnableUser(username) {
+      await call(() => client.send(new AdminEnableUserCommand({ UserPoolId: userPoolId, Username: username })));
+    },
+
+    async adminResetUserPassword(username) {
+      await call(() => client.send(new AdminResetUserPasswordCommand({ UserPoolId: userPoolId, Username: username })));
     },
   };
 }

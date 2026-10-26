@@ -16,6 +16,9 @@ export interface Actor {
   /** The caller's Cognito access token (needed for self-service Cognito calls). */
   accessToken: string;
   permissions: ReadonlySet<string>;
+  /** Pending steps (only reachable on routes with allowPending). */
+  mustChangePassword: boolean;
+  mfaSetupRequired: boolean;
 }
 
 export type AuthedRoute = (request: Request, actor: Actor, tx: Tx) => Promise<HttpResponse>;
@@ -88,6 +91,8 @@ export function authed(deps: Pick<Deps, 'db' | 'verifier' | 'config'>, route: Au
           cognitoSub: claims.sub,
           accessToken: token,
           permissions,
+          mustChangePassword: auth.must_change_password,
+          mfaSetupRequired: auth.mfa_setup_required,
         },
         tx,
       );

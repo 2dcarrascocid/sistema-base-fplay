@@ -207,10 +207,11 @@ async function revokeSession(deps: Deps, sessionId: string, reason: 'logout' | '
 
 /** POST /auth/refresh — new access token from the HttpOnly refresh cookie. */
 export async function refresh(deps: Deps, request: Request): Promise<HttpResponse> {
-  assertCsrf(request, deps.config.webUrl);
   const refreshToken = request.cookies[COOKIES.refresh];
   const fail = (): HttpResponse => ({ status: 401, body: { error: { code: 'SESSION_INVALID', requestId: request.requestId } }, cookies: clearSessionCookies() });
+  // No cookie: nothing to refresh (the normal case on first visit), so no CSRF check is needed to answer.
   if (!refreshToken) return fail();
+  assertCsrf(request, deps.config.webUrl);
 
   const session = await findSessionByRefreshToken(deps, refreshToken);
   if (!session || session.revoked_at) return fail();

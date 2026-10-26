@@ -6,6 +6,7 @@
     "node": ">=24.0.0 <25"
   },
   "scripts": {
+    "dev": "pnpm db:start && pnpm --parallel --filter @base/api --filter @base/web dev",
     "db:start": "supabase db start",
     "db:stop": "supabase stop",
     "db:reset": "supabase db reset",
@@ -22,6 +23,9 @@
       "esbuild",
       "serverless",
       "supabase"
-    ]
+    ],
+    "overrides": {
+      "undici@6": "6.29.1"
+    }
   }
 }

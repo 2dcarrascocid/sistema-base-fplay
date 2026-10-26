@@ -1,6 +1,7 @@
 import { Kysely, PostgresDialect, sql, type Transaction } from 'kysely';
 import pg from 'pg';
 import type { Database } from './db-types.js';
+import { logger } from './logger.js';
 
 export type Db = Kysely<Database>;
 export type Tx = Transaction<Database>;
@@ -32,6 +33,8 @@ export function createDb(connection: DbConnection): Db {
     statement_timeout: 10_000,
     application_name: `base-api-${connection.user}`,
   });
+  // An idle connection dropped by the server must not crash the process; the pool reconnects.
+  pool.on('error', (error) => logger.warn('database connection lost', { error }));
   return new Kysely<Database>({ dialect: new PostgresDialect({ pool }) });
 }
 

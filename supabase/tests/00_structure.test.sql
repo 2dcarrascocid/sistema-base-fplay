@@ -1,7 +1,7 @@
 -- Schema structure, RLS coverage and least-privilege grants.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(16);
+select plan(18);
 
 select has_schema('app');
 
@@ -27,6 +27,19 @@ select is(
   (select count(*)::integer from information_schema.role_table_grants
    where table_schema = 'app' and grantee = 'PUBLIC'),
   0, 'nothing is granted to PUBLIC'
+);
+
+select is(
+  (select count(*)::integer from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'app' and p.prosecdef
+     and not exists (select 1 from unnest(coalesce(p.proconfig, '{}')) c where c like 'search_path=%')),
+  0, 'every SECURITY DEFINER function pins its search_path'
+);
+
+select is(
+  (select count(*)::integer from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'app' and has_function_privilege('public', p.oid, 'EXECUTE')),
+  0, 'no function is executable by PUBLIC'
 );
 
 select is(

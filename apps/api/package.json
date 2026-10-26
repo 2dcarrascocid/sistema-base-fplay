@@ -9,7 +9,8 @@
     "bundle:check": "node scripts/bundle-check.mjs",
     "deploy:dev": "serverless deploy --stage dev",
     "deploy:prod": "serverless deploy --stage prod",
-    "create-superuser": "node scripts/create-superuser.ts"
+    "create-superuser": "node scripts/create-superuser.ts",
+    "dev": "tsx watch --clear-screen=false dev/server.ts"
   },
   "dependencies": {
     "@aws-sdk/client-cognito-identity-provider": "3.1152.0",
@@ -22,7 +23,8 @@
     "aws-jwt-verify": "5.2.1",
     "kysely": "0.28.18",
     "pg": "8.23.1",
-    "zod": "4.6.5"
+    "zod": "4.6.7",
+    "sanitize-html": "2.18.1"
   },
   "devDependencies": {
     "@types/aws-lambda": "8.10.164",
@@ -32,6 +34,8 @@
     "esbuild": "0.28.2",
     "serverless": "4.43.0",
     "typescript": "6.0.3",
-    "vitest": "4.1.12"
+    "vitest": "4.1.12",
+    "tsx": "4.23.13",
+    "@types/sanitize-html": "2.16.1"
   }
 }

@@ -1,3 +1,4 @@
+import { sql } from 'kysely';
 import type { Db, Tx } from './db.js';
 import type { Request } from './http.js';
 import { redact } from './logger.js';
@@ -28,7 +29,13 @@ export const originOf = (request: Request): AuditOrigin => ({
 
 export const NO_ORIGIN: AuditOrigin = { ip: null, userAgent: null, requestId: null };
 
-/** Appends to the immutable audit log. Old/new values go through the same redaction as logs. */
+/**
+ * Secrets never stored in audit values. Narrower than the log redaction: audit entries legitimately
+ * contain keys such as "code" (menu and action codes) or "sessions" (revoked session ids).
+ */
+const AUDIT_SENSITIVE = /pass(word)?|token|secret|authorization|cookie|otp|verifier/i;
+
+/** Appends to the immutable audit log. */
 export async function audit(db: Db | Tx, origin: AuditOrigin, event: AuditEvent): Promise<void> {
   await db
     .insertInto('app.audit_log')
@@ -36,14 +43,17 @@ export async function audit(db: Db | Tx, origin: AuditOrigin, event: AuditEvent)
       event_type: event.eventType,
       result: event.result,
       actor_user_id: event.actorUserId ?? null,
-      actor_email: event.actorEmail ?? null,
+      // The actor email is copied into the row so the audit screen never needs to read app.users.
+      actor_email:
+        event.actorEmail ??
+        (event.actorUserId ? sql<string>`(select email from app.users where id = ${event.actorUserId})` : null),
       entity_type: event.entityType ?? null,
       entity_id: event.entityId ?? null,
       ip: origin.ip,
       user_agent: origin.userAgent,
       request_id: origin.requestId,
-      old_value: event.oldValue === undefined ? null : JSON.stringify(redact(event.oldValue)),
-      new_value: event.newValue === undefined ? null : JSON.stringify(redact(event.newValue)),
+      old_value: event.oldValue === undefined ? null : JSON.stringify(redact(event.oldValue, 0, AUDIT_SENSITIVE)),
+      new_value: event.newValue === undefined ? null : JSON.stringify(redact(event.newValue, 0, AUDIT_SENSITIVE)),
     })
     .execute();
 }

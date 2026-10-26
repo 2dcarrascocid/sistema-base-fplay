@@ -43,7 +43,7 @@ const ChangePasswordBody = z.object({
   newPassword: z.string().min(1).max(PASSWORD_MAX_LENGTH),
 });
 const CodeBody = z.object({ code: z.string().regex(/^\d{6}$/) });
-const SessionParam = z.object({ id: z.uuid() });
+const SessionParam = z.object({ id: z.guid() });
 const UploadBody = z.object({ contentType: z.enum(['image/jpeg', 'image/png', 'image/webp']) });
 const PhotoBody = z.object({ key: z.string().max(200) });
 
@@ -86,7 +86,8 @@ async function getMe(deps: Deps, actor: Actor, tx: Tx): Promise<HttpResponse> {
     role: actor.role,
     permissions: [...actor.permissions].sort(),
     menu: buildMenuTree(menus, actor.role, actor.permissions, actor.clientType),
-    settings,
+    settings: { ...settings, logoUrl: settings.logo_key ? await deps.storage.downloadUrl(settings.logo_key) : null },
+    pending: { passwordChange: actor.mustChangePassword, mfaSetup: actor.mfaSetupRequired },
   });
 }
 

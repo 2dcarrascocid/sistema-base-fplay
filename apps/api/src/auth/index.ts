@@ -3,4 +3,7 @@ import { getDeps } from '../lib/aws/deps.js';
 import { createRouter } from '../lib/http.js';
 import { authRoutes } from './routes.js';
 
-export const handler = async (event: APIGatewayProxyEvent) => createRouter(authRoutes(await getDeps()))(event);
+export const handler = async (event: APIGatewayProxyEvent) => {
+  const deps = await getDeps();
+  return createRouter(authRoutes(deps), { originSecret: deps.originSecret })(event);
+};

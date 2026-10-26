@@ -93,6 +93,8 @@ export interface MenusTable {
   superuser_only: boolean;
   is_system: boolean;
   is_active: boolean;
+  updated_at: Generated<Date>;
+  updated_by: Defaulted<string | null>;
 }
 
 export interface ActionsTable {
@@ -149,6 +151,8 @@ export interface AppSettingsTable {
   default_locale: 'es' | 'en';
   default_time_zone: string;
   self_registration_enabled: boolean;
+  updated_at: Generated<Date>;
+  updated_by: Defaulted<string | null>;
 }
 
 export interface SecurityPolicyTable {
@@ -175,6 +179,8 @@ export interface EmailTemplatesTable {
   subject: string;
   body_html: string;
   body_text: string;
+  updated_at: Generated<Date>;
+  updated_by: Defaulted<string | null>;
 }
 
 export interface AuditLogTable {

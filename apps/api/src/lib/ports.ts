@@ -53,6 +53,10 @@ export interface CognitoPort {
   adminMarkEmailVerified(username: string): Promise<void>;
   adminGlobalSignOut(username: string): Promise<void>;
   adminLinkProvider(nativeUsername: string, providerName: string, providerSubject: string): Promise<void>;
+  adminDisableUser(username: string): Promise<void>;
+  adminEnableUser(username: string): Promise<void>;
+  /** Invalidates the password; Cognito emails a code to set a new one (Custom message trigger). */
+  adminResetUserPassword(username: string): Promise<void>;
 }
 
 export interface AccessClaims {

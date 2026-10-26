@@ -1,6 +1,8 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { z } from 'zod';
 import { parseCookies } from './cookies.js';
+import { safeEqual } from './crypto.js';
+import { mapDbError } from './db-errors.js';
 import { AppError, badRequest, notFound } from './errors.js';
 import { logger } from './logger.js';
 
@@ -17,7 +19,10 @@ const SECURITY_HEADERS: Record<string, string> = {
 
 export interface HttpResponse {
   status: number;
+  /** Serialized as JSON. */
   body?: unknown;
+  /** Raw text body (e.g. CSV); the route sets Content-Type. */
+  text?: string;
   headers?: Record<string, string>;
   cookies?: string[];
 }
@@ -107,18 +112,19 @@ export function toRequest(event: APIGatewayProxyEvent): Request {
 }
 
 export function toResult(response: HttpResponse, requestId: string): APIGatewayProxyResult {
-  const headers: Record<string, string> = { ...SECURITY_HEADERS, ...response.headers };
+  const headers: Record<string, string> = { ...SECURITY_HEADERS };
   if (response.body !== undefined) headers['Content-Type'] = 'application/json; charset=utf-8';
   const result: APIGatewayProxyResult = {
     statusCode: response.status,
-    headers: { ...headers, 'X-Request-Id': requestId },
-    body: response.body === undefined ? '' : JSON.stringify(response.body),
+    headers: { ...headers, ...response.headers, 'X-Request-Id': requestId },
+    body: response.text ?? (response.body === undefined ? '' : JSON.stringify(response.body)),
   };
   if (response.cookies?.length) result.multiValueHeaders = { 'Set-Cookie': response.cookies };
   return result;
 }
 
-export function errorResponse(error: unknown, requestId: string): HttpResponse {
+export function errorResponse(caught: unknown, requestId: string): HttpResponse {
+  const error = mapDbError(caught) ?? caught;
   if (error instanceof AppError) {
     if (error.status >= 500) logger.error('request failed', { requestId, errorCode: error.code });
     const body: Record<string, unknown> = { code: error.code, requestId };
@@ -129,13 +135,24 @@ export function errorResponse(error: unknown, requestId: string): HttpResponse {
   return { status: 500, body: { error: { code: 'INTERNAL_ERROR', requestId } } };
 }
 
+export interface RouterOptions {
+  /**
+   * Secret CloudFront sends as X-Origin-Verify. When set, requests without it are refused, so the
+   * API Gateway endpoint cannot be called directly (bypassing CloudFront and its WAF).
+   */
+  originSecret?: string | undefined;
+}
+
 /** Builds a Lambda handler that dispatches "METHOD /resource" to routes. */
-export function createRouter(routes: Record<string, Route>) {
+export function createRouter(routes: Record<string, Route>, options: RouterOptions = {}) {
   return async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
     const requestId = event.requestContext?.requestId ?? 'unknown';
     let response: HttpResponse;
     try {
       const request = toRequest(event);
+      if (options.originSecret && !safeEqual(request.headers['x-origin-verify'] ?? '', options.originSecret)) {
+        throw new AppError(403, 'FORBIDDEN');
+      }
       const route = routes[`${request.method} ${request.resource}`];
       if (!route) throw notFound();
       response = await route(request);
