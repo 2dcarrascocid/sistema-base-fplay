@@ -7,6 +7,7 @@
   },
   "scripts": {
     "dev": "node scripts/db-ensure.mjs && pnpm --parallel --filter @base/api --filter @base/web dev",
+    "dev:saphi": "node scripts/start-saphi.mjs",
     "db:ensure": "node scripts/db-ensure.mjs",
     "db:start": "supabase db start",
     "db:stop": "supabase stop",

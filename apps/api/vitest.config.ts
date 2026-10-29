@@ -8,6 +8,9 @@ export default defineConfig({
     // Test files share the app_test database (and a few global settings rows).
     fileParallelism: false,
     testTimeout: 20_000,
+    // Multi-company fixtures provision users, profiles and authenticated resources in a real DB.
+    // Keep setup bounded without relying on Vitest's shorter 10s default on shared local CPUs.
+    hookTimeout: 30_000,
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts'],

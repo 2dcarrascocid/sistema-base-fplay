@@ -1,6 +1,12 @@
 # Base Fairplay API — Serverless Framework v4, stages dev and prod.
 # Prerequisites per stage (see README.md): Secrets Manager secrets, SES identity, IdP credentials.
 service: base-fairplay-api
+package:
+  patterns:
+    - '!iot/**'
+    - '!**/*.pem.key'
+    - '!**/*certificate.pem.crt'
+    - '!.env*'
 frameworkVersion: '4'
 
 params:
@@ -163,6 +169,48 @@ functions:
       - http: { path: '/audit/events/{id}', method: get }
       - http: { path: /audit/event-types, method: get }
       - http: { path: /audit/integrity, method: get }
+
+  saphi:
+    handler: src/saphi/index.handler
+    role: SaphiFunctionRole
+    environment:
+      DB_SECRET_ARN: ${param:apiDbSecretArn}
+      ORIGIN_SECRET_ARN: ${param:originSecretArn}
+    events:
+      - http: { path: /saphi/companies, method: get }
+      - http: { path: /saphi/companies, method: post }
+      - http: { path: '/saphi/companies/{companyId}', method: get }
+      - http: { path: '/saphi/companies/{companyId}', method: patch }
+      - http: { path: '/saphi/companies/{companyId}/capabilities', method: get }
+      - http: { path: '/saphi/companies/{companyId}/memberships', method: get }
+      - http: { path: '/saphi/companies/{companyId}/memberships/{userId}', method: put }
+      - http: { path: '/saphi/companies/{companyId}/memberships/{userId}/permissions', method: put }
+      - http: { path: '/saphi/companies/{companyId}/farms', method: get }
+      - http: { path: '/saphi/companies/{companyId}/farms', method: post }
+      - http: { path: '/saphi/companies/{companyId}/farms/{id}', method: get }
+      - http: { path: '/saphi/companies/{companyId}/farms/{id}', method: patch }
+      - http: { path: '/saphi/companies/{companyId}/plots', method: get }
+      - http: { path: '/saphi/companies/{companyId}/plots', method: post }
+      - http: { path: '/saphi/companies/{companyId}/plots/{id}', method: get }
+      - http: { path: '/saphi/companies/{companyId}/plots/{id}', method: patch }
+      - http: { path: '/saphi/companies/{companyId}/sampling-points', method: get }
+      - http: { path: '/saphi/companies/{companyId}/sampling-points', method: post }
+      - http: { path: '/saphi/companies/{companyId}/sampling-points/{id}', method: get }
+      - http: { path: '/saphi/companies/{companyId}/sampling-points/{id}', method: patch }
+      - http: { path: '/saphi/companies/{companyId}/samples', method: get }
+      - http: { path: '/saphi/companies/{companyId}/samples', method: post }
+      - http: { path: '/saphi/companies/{companyId}/samples/{id}', method: get }
+      - http: { path: '/saphi/companies/{companyId}/devices', method: get }
+      - http: { path: '/saphi/companies/{companyId}/devices', method: post }
+      - http: { path: '/saphi/companies/{companyId}/devices/{id}', method: get }
+      - http: { path: '/saphi/companies/{companyId}/devices/{id}', method: patch }
+      - http: { path: '/saphi/companies/{companyId}/telemetry/readings', method: get }
+      - http: { path: '/saphi/companies/{companyId}/telemetry/latest', method: get }
+        - http: { path: '/saphi/companies/{companyId}/dashboard', method: get }
+        - http: { path: '/saphi/companies/{companyId}/satellite/map', method: get }
+        - http: { path: '/saphi/companies/{companyId}/satellite/observations', method: get }
+      - http: { path: '/saphi/companies/{companyId}/satellite/observations/{id}', method: get }
+      - http: { path: '/saphi/companies/{companyId}/satellite/observations/{id}/assets/{assetId}/download', method: get }
 
   preSignUp:
     handler: src/triggers/index.preSignUpHandler
@@ -514,6 +562,21 @@ resources:
                 - Effect: Allow
                   Action: s3:GetObject
                   Resource: !Join ['', [!GetAtt PhotoBucket.Arn, '/branding/*']]
+
+    SaphiFunctionRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument: *lambdaTrust
+        Policies:
+          - PolicyName: saphi
+            PolicyDocument:
+              Statement:
+                - Effect: Allow
+                  Action: [logs:CreateLogStream, logs:PutLogEvents]
+                  Resource: arn:aws:logs:${aws:region}:${aws:accountId}:log-group:/aws/lambda/${self:service}-${sls:stage}-saphi:*
+                - Effect: Allow
+                  Action: secretsmanager:GetSecretValue
+                  Resource: ['${param:apiDbSecretArn}', '${param:originSecretArn}']
 
     ConfigFunctionRole:
       Type: AWS::IAM::Role

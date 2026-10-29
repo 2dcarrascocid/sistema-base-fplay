@@ -1,14 +1,19 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router';
 import { useSessionStore } from '../stores/session';
 import { resolveNavigation, type RouteMetaInfo } from './guards';
+import { saphiRoutes, saphiNavigation } from '../modules/saphi/routes';
+import type { SaphiPermission } from '@base/saphi';
+import { useSaphiCompanyStore } from '../modules/saphi/stores/company';
 
 declare module 'vue-router' {
   interface RouteMeta extends RouteMetaInfo {
     layout?: 'auth' | 'app';
+    saphiPermission?: SaphiPermission;
   }
 }
 
 const routes: RouteRecordRaw[] = [
+  ...saphiRoutes,
   { path: '/login', name: 'login', component: () => import('../views/auth/LoginView.vue'), meta: { public: true, guestOnly: true, layout: 'auth' } },
   {
     path: '/forgot-password',
@@ -84,5 +89,15 @@ export const router = createRouter({ history: createWebHistory(), routes });
 router.beforeEach(async (to) => {
   const session = useSessionStore();
   await session.init();
-  return resolveNavigation(to, session);
+  const decision=resolveNavigation(to, session);
+  if(decision!==true)return decision;
+  if(to.meta.saphiPermission){
+    const access=await saphiNavigation(to.params['companyId'],to.meta.saphiPermission);
+    if(access===true && typeof to.params['companyId']==='string'){
+      const section=to.path.split('/')[4];
+      if(section)useSaphiCompanyStore().rememberSection(to.params['companyId'],section);
+    }
+    return access;
+  }
+  return true;
 });

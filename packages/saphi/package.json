@@ -1,0 +1,22 @@
+{
+  "name": "@base/saphi",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@base/shared": "workspace:*",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "4.1.12",
+    "typescript": "6.0.3",
+    "vitest": "4.1.12"
+  }
+}

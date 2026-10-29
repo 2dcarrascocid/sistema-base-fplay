@@ -1,0 +1,51 @@
+service: sentinel-gee-local
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: python3.11
+  stage: dev
+  region: us-east-1
+  timeout: 60
+  environment:
+    ALLOWED_ORIGINS: http://localhost:5173,http://localhost:5174
+    GEE_KEY_FILE: ${env:GEE_KEY_FILE, ''}
+    SAPHI_GEE_INTERNAL_TOKEN: ${env:SAPHI_GEE_INTERNAL_TOKEN, ''}
+
+plugins:
+  - serverless-python-requirements
+  - serverless-offline
+
+custom:
+  pythonRequirements:
+    pythonBin: python
+    dockerizePip: false
+  serverless-offline:
+    host: localhost
+    httpPort: 3000
+    lambdaPort: 3002
+    websocketPort: 3003
+    # The handler enforces the same allowlist for actual requests and OPTIONS.
+    corsAllowOrigin: http://localhost:5173,http://localhost:5174
+    corsAllowHeaders: Content-Type
+    corsAllowMethods: GET,OPTIONS
+    corsDisallowCredentials: true
+
+package:
+  patterns:
+    - '!credenciales-gee.json'
+    - '!**/*service-account*.json'
+    - '!.venv/**'
+    - '!tests/**'
+    - '!__pycache__/**'
+
+functions:
+  procesarSentinel:
+    handler: handler.procesar_sentinel
+    events:
+      - http:
+          path: procesar-sentinel
+          method: get
+      - http:
+          path: procesar-sentinel
+          method: options

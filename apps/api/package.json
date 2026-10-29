@@ -10,7 +10,10 @@
     "deploy:dev": "serverless deploy --stage dev",
     "deploy:prod": "serverless deploy --stage prod",
     "create-superuser": "node scripts/create-superuser.ts",
-    "dev": "tsx watch --clear-screen=false dev/server.ts"
+    "dev": "tsx watch --clear-screen=false dev/server.ts",
+    "gee:dev": "node scripts/start-gee.mjs",
+    "iot:simulator": "node scripts/iot/simulator.mjs",
+    "iot:test": "node --test scripts/iot/config.test.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-cognito-identity-provider": "3.1152.0",
@@ -19,23 +22,25 @@
     "@aws-sdk/client-sesv2": "3.1152.0",
     "@aws-sdk/s3-presigned-post": "3.1152.0",
     "@aws-sdk/s3-request-presigner": "3.1152.0",
+    "@base/saphi": "workspace:*",
     "@base/shared": "workspace:*",
     "aws-jwt-verify": "5.2.1",
     "kysely": "0.28.18",
     "pg": "8.23.1",
-    "zod": "4.6.7",
-    "sanitize-html": "2.18.1"
+    "sanitize-html": "2.18.1",
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@types/aws-lambda": "8.10.164",
     "@types/node": "24.19.2",
     "@types/pg": "8.23.1",
+    "@types/sanitize-html": "2.16.1",
     "@vitest/coverage-v8": "4.1.12",
+    "aws-iot-device-sdk-v2": "1.28.2",
     "esbuild": "0.28.2",
     "serverless": "4.43.0",
-    "typescript": "6.0.3",
-    "vitest": "4.1.12",
     "tsx": "4.23.13",
-    "@types/sanitize-html": "2.16.1"
+    "typescript": "6.0.3",
+    "vitest": "4.1.12"
   }
 }

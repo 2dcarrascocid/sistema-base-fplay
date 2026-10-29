@@ -5,7 +5,7 @@ import { mkdtempSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const entryPoints = ['src/auth/index.ts', 'src/me/index.ts', 'src/admin/index.ts', 'src/config/index.ts', 'src/triggers/index.ts'];
+const entryPoints = ['src/auth/index.ts', 'src/me/index.ts', 'src/admin/index.ts', 'src/config/index.ts', 'src/triggers/index.ts', 'src/saphi/index.ts', 'src/saphi/iot-ingest/index.ts'];
 const outdir = mkdtempSync(join(tmpdir(), 'base-api-bundle-'));
 
 try {

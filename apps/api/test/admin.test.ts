@@ -343,10 +343,20 @@ describe('profiles maintainer', () => {
   it('serves the permission catalog without superuser-only menus, flagging grantable actions', async () => {
     const response = await call('GET', '/admin/permission-catalog', { token: adminToken });
     const codes = response.body.menus.map((m: { code: string }) => m.code);
-    expect(codes).toEqual(['security']);
-    const users = response.body.menus[0].children.find((m: { code: string }) => m.code === 'security.users');
+    // Other suites may already have created ordinary menus in the shared test database.
+    expect(codes).toEqual(expect.arrayContaining(['security', 'saphi']));
+    const restricted = await ownerDb.selectFrom('app.v_effective_menus').select('code').where('superuser_only','=',true).execute();
+    const flatten = (menus: {code:string;children:any[]}[]):string[] => menus.flatMap(menu=>[menu.code,...flatten(menu.children)]);
+    const returnedCodes=flatten(response.body.menus);
+    for(const menu of restricted)expect(returnedCodes).not.toContain(menu.code);
+    // The new catalogue is visible for administration, but adds no grants to this admin.
+    const saphi = response.body.menus.find((m: { code: string }) => m.code === 'saphi');
+    expect(saphi.children.every((menu: { actions: { grantable: boolean }[] }) =>
+      menu.actions.every((action) => !action.grantable))).toBe(true);
+    const security = response.body.menus.find((m: { code: string }) => m.code === 'security');
+    const users = security.children.find((m: { code: string }) => m.code === 'security.users');
     expect(users.actions.every((a: { grantable: boolean }) => a.grantable)).toBe(true);
-    const audit = response.body.menus[0].children.find((m: { code: string }) => m.code === 'security.audit');
+    const audit = security.children.find((m: { code: string }) => m.code === 'security.audit');
     expect(audit.actions.some((a: { grantable: boolean }) => a.grantable)).toBe(false);
     expect(response.body.actions.map((a: { code: string }) => a.code)).toContain('view');
   });

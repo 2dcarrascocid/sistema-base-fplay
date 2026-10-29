@@ -14,6 +14,7 @@ import { useSessionStore } from '../src/stores/session';
 
 // Load every lazy route up front: the router's dynamic imports then resolve within settle().
 import.meta.glob('../src/views/**/*.vue', { eager: true });
+import.meta.glob('../src/modules/saphi/views/**/*.vue', { eager: true });
 
 export class Reply {
   constructor(

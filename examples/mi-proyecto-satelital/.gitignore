@@ -1,0 +1,12 @@
+**/credenciales-gee.json
+**/*service-account*.json
+**/.venv/
+**/__pycache__/
+**/.pytest_cache/
+**/.requirements/
+**/.serverless/
+**/.serverless-offline/
+**/node_modules/
+**/dist/
+.env
+.env.*

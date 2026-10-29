@@ -41,6 +41,7 @@ export function readCookie(name: string, source: string = document.cookie): stri
 }
 
 export interface RequestOptions {
+  signal?: AbortSignal;
   body?: unknown;
   query?: Record<string, string | number | boolean | undefined | null>;
   /** Send the Bearer token and refresh on 401 (default true). */
@@ -82,6 +83,7 @@ export async function request<T>(method: string, path: string, options: RequestO
     headers,
     body: body === undefined ? undefined : JSON.stringify(body),
     credentials: 'same-origin',
+    ...(options.signal?{signal:options.signal}:{}),
   });
 
   if (response.status === 401 && auth && hooks) {

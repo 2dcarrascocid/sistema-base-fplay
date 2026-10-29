@@ -5,6 +5,11 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   plugins: [vue(), vuetify({ autoImport: true })],
   test: {
+    // Mounted Vuetify applications are CPU/memory heavy; bound worker contention in CI/local.
+    maxWorkers: 2,
+    // Full-app Vuetify flows plus coverage can exceed Vitest's 5s default on shared CPUs.
+    // This is a test runner deadline, not a product/API timeout or a coverage relaxation.
+    testTimeout: 10_000,
     environment: 'happy-dom',
     include: ['test/**/*.test.ts'],
     setupFiles: ['test/setup.ts'],

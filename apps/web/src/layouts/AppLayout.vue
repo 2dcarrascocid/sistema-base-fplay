@@ -8,8 +8,10 @@ import type { Locale } from '../services/types';
 import { useNotifyStore } from '../stores/notify';
 import { useSessionStore } from '../stores/session';
 import { fullName, initials } from '../utils/format';
+import { useSaphiCompanyStore } from '../modules/saphi/stores/company';
 
 const session = useSessionStore();
+const saphi=useSaphiCompanyStore();
 const notify = useNotifyStore();
 const router = useRouter();
 const { t, locale } = useI18n();
@@ -17,6 +19,9 @@ const { mobile } = useDisplay();
 const drawer = ref<boolean | null>(null);
 
 const me = computed(() => session.me);
+const visibleModules=computed(()=>[...(me.value?.menu??[]).filter(m=>m.code!=='saphi'),
+  ...saphi.menu.map(module=>({...module,children:[...module.children].sort((a,b)=>
+    Number(a.code==='saphi.memberships')-Number(b.code==='saphi.memberships'))}))]);
 const label = (name: { es: string; en: string }) => name[locale.value as Locale] ?? name.es;
 
 async function logout() {
@@ -29,23 +34,25 @@ async function logout() {
 <template>
   <v-navigation-drawer v-model="drawer" :permanent="!mobile" width="272">
     <v-list nav density="comfortable">
-      <v-list-item :to="{ name: 'home' }" prepend-icon="mdi-home-outline" :title="t('nav.home')" exact />
-      <template v-for="module in me?.menu ?? []" :key="module.code">
+      <v-list-item value="base-home" :to="{ name: 'home' }" prepend-icon="mdi-home-outline" :title="t('nav.home')" exact />
+      <v-list-item value="saphi-company-selector" :to="{name:'saphi-companies'}" prepend-icon="mdi-sprout" :title="t('saphi.title')" />
+      <template v-for="module in visibleModules" :key="module.code">
         <v-list-subheader v-if="module.kind === 'module'" class="text-uppercase">{{ label(module.name) }}</v-list-subheader>
         <template v-for="item in module.kind === 'module' ? module.children : [module]" :key="item.code">
-          <v-list-group v-if="item.children.length > 0" :value="item.code">
+          <v-list-group v-if="item.children.length > 0" :value="`group:${item.code}`">
             <template #activator="{ props }">
               <v-list-item v-bind="props" :prepend-icon="item.icon ?? 'mdi-folder-outline'" :title="label(item.name)" />
             </template>
             <v-list-item
               v-for="child in item.children"
               :key="child.code"
+              :value="`menu:${child.code}`"
               :to="child.route ?? undefined"
               :disabled="!child.route"
               :title="label(child.name)"
             />
           </v-list-group>
-          <v-list-item v-else :to="item.route ?? undefined" :prepend-icon="item.icon ?? 'mdi-circle-small'" :title="label(item.name)" />
+          <v-list-item v-else :value="`menu:${item.code}`" :to="item.route ?? undefined" :prepend-icon="item.icon ?? 'mdi-circle-small'" :title="label(item.name)" />
         </template>
       </template>
     </v-list>

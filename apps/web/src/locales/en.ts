@@ -1,6 +1,8 @@
 import type es from './es';
+import { saphiEn } from '../modules/saphi/locales';
 
 const en: typeof es = {
+  saphi: saphiEn,
   app: {
     loading: 'Loading…',
     save: 'Save',
@@ -91,6 +93,17 @@ const en: typeof es = {
     loggedOut: 'You signed out.',
   },
   errors: {
+    VERSION_CONFLICT:'This record changed. Reload the data before saving.',
+    DUPLICATE_RESOURCE:'A record with this identifier already exists.',
+    LAST_MANAGER:'The company must retain an active manager.',
+    INVALID_CURSOR:'This page expired or its context changed. Return to the first page.',
+    SATELLITE_STORAGE_UNAVAILABLE:'Satellite downloads require an approved storage policy.',
+    SATELLITE_LOCATION_REQUIRED:'The plot needs active sampling points with coordinates to locate the reference area.',
+    SATELLITE_AREA_TOO_LARGE:'The plot sampling points exceed the area supported by this viewer.',
+    SATELLITE_PROVIDER_UNAVAILABLE:'The local Earth Engine service is unavailable. Start the GEE service and retry.',
+    SATELLITE_PROVIDER_CONFIGURATION:'Earth Engine authentication failed. Check the key, project registration and permissions.',
+    SATELLITE_PROVIDER_ERROR:'Earth Engine could not prepare the tiles. Check connectivity, quota or shorten the period.',
+    SATELLITE_NO_SCENES:'No Sentinel-2 scenes match this area, period and cloud filter.',
     INVALID_CREDENTIALS: 'Wrong email or password, or the account is temporarily locked.',
     CAPTCHA_FAILED: 'We could not verify you are not a robot. Please try again.',
     RATE_LIMITED: 'Too many attempts. Wait a few minutes and try again.',

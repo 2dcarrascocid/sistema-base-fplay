@@ -9,3 +9,9 @@ supabase/.branches/
 supabase/.temp/
 .serverless/
 graphify-out/
+**/credenciales-gee.json
+.local/
+claves.txt
+**/iot/*.pem
+**/iot/*.pem.key
+**/iot/*.pem.crt

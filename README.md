@@ -46,6 +46,18 @@ Antes de levantar la API y la web, `pnpm dev` ejecuta [`scripts/db-ensure.mjs`](
 
 Todos los pasos se pueden repetir sin efecto: si todo está listo, no cambia nada.
 
+### Saphi Chile con datos de demostración
+
+Para iniciar la extensión Saphi en local con un solo comando:
+
+```bash
+pnpm dev:saphi
+```
+
+El [arranque Saphi](scripts/start-saphi.mjs) prepara el contenedor PostgreSQL y las migraciones, carga las empresas y tablas DEMO, inicia API y web, prepara la empresa del visor mediante la API local y añade muestras y observaciones ficticias. Puede repetirse sin duplicar los registros de demostración. Si encuentra la credencial y las dependencias locales de Python/Serverless, también inicia el proveedor Earth Engine; sin ellas, el resto de la aplicación funciona. El visor GEE usa imágenes reales cuando está configurado, mientras las filas `demo.local` de la tabla son ficticias.
+
+`Ctrl+C` detiene los servicios iniciados por este comando. El contenedor de PostgreSQL permanece disponible para el siguiente arranque. Este comando solo se usa en desarrollo local y requiere Docker Desktop activo. Véanse el [recorrido Saphi](docs/saphi/recorrido-demo.md) y la [guía del visor](docs/saphi/satelital-gee-local.md).
+
 - Usuario: `superadmin@local.test` · contraseña `Local-Dev-2026!` · código MFA `123456`.
 - La API local (`apps/api/dev/server.ts`) usa las mismas rutas que las Lambdas, sobre la BD del contenedor, con Cognito, SES y S3 simulados. Los emails (invitaciones, códigos) aparecen en la consola. Google, Facebook y Apple se simulan con una pantalla donde eliges el usuario.
 - El servidor de desarrollo nunca se despliega y se niega a arrancar con `NODE_ENV=production`.

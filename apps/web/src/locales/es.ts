@@ -1,4 +1,6 @@
+import { saphiEs } from '../modules/saphi/locales';
 export default {
+  saphi: saphiEs,
   app: {
     loading: 'Cargando…',
     save: 'Guardar',
@@ -89,6 +91,17 @@ export default {
     loggedOut: 'Cerraste sesión.',
   },
   errors: {
+    VERSION_CONFLICT:'El registro cambió. Recarga los datos antes de guardar.',
+    DUPLICATE_RESOURCE:'Ya existe un registro con ese identificador.',
+    LAST_MANAGER:'La empresa debe conservar una persona gestora activa.',
+    INVALID_CURSOR:'La página expiró o cambió de contexto. Vuelve al inicio.',
+    SATELLITE_STORAGE_UNAVAILABLE:'La descarga satelital requiere una política de almacenamiento aprobada.',
+    SATELLITE_LOCATION_REQUIRED:'El cuartel necesita puntos de muestreo activos con coordenadas para localizar el área.',
+    SATELLITE_AREA_TOO_LARGE:'Los puntos del cuartel abarcan un área fuera de los límites admitidos por el visor.',
+    SATELLITE_PROVIDER_UNAVAILABLE:'El servicio local de Earth Engine no está iniciado. Inicia el servicio GEE y vuelve a intentar.',
+    SATELLITE_PROVIDER_CONFIGURATION:'Earth Engine no pudo autenticarse. Revisa la llave, el registro del proyecto y sus permisos.',
+    SATELLITE_PROVIDER_ERROR:'Earth Engine no pudo preparar las teselas. Revisa conexión, cuota o reduce el período.',
+    SATELLITE_NO_SCENES:'No hay escenas Sentinel-2 para el área, período y nubosidad seleccionados.',
     INVALID_CREDENTIALS: 'Email o contraseña incorrectos, o la cuenta está bloqueada temporalmente.',
     CAPTCHA_FAILED: 'No pudimos verificar que no eres un robot. Inténtalo de nuevo.',
     RATE_LIMITED: 'Demasiados intentos. Espera unos minutos y vuelve a intentarlo.',

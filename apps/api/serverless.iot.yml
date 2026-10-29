@@ -1,0 +1,71 @@
+# Optional standalone stack proposal. Not loaded by the existing API stack, never auto-deployed.
+service: saphi-iot-ingestion
+frameworkVersion: '4'
+provider:
+  name: aws
+  runtime: nodejs24.x
+  region: us-east-1
+  architecture: arm64
+  timeout: 20
+  environment:
+    DB_HOST: ${param:dbHost}
+    DB_PORT: ${param:dbPort}
+    DB_NAME: ${param:dbName}
+    IOT_DB_SECRET_ARN: ${param:iotDbSecretArn}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action: secretsmanager:GetSecretValue
+          Resource: ${param:iotDbSecretArn}
+        - Effect: Allow
+          Action: sns:Publish
+          Resource: ${param:failureDestinationArn}
+build:
+  esbuild:
+    bundle: true
+    minify: true
+    exclude: []
+package:
+  patterns:
+    - '!iot/**'
+    - '!.env*'
+    - '!scripts/**'
+functions:
+  iotTelemetryIngest:
+    handler: src/saphi/iot-ingest/index.handler
+    # No HTTP event, Cognito or public Lambda URL.
+    onError: ${param:failureDestinationArn}
+resources:
+  Resources:
+    TelemetryRule:
+      Type: AWS::IoT::TopicRule
+      Properties:
+        RuleName: ${param:ruleName}
+        TopicRulePayload:
+          AwsIotSqlVersion: '2016-03-23'
+          RuleDisabled: true
+          Sql: "SELECT * AS payload, {'accountId': accountid(), 'principal': principal(), 'clientId': clientid(), 'topic': topic(), 'receivedAt': timestamp()} AS broker FROM '${param:telemetryTopic}'"
+          Actions:
+            - Lambda:
+                FunctionArn: !GetAtt IotTelemetryIngestLambdaFunction.Arn
+          ErrorAction:
+            Sqs:
+              QueueUrl: ${param:ruleErrorQueueUrl}
+              RoleArn: ${param:ruleErrorRoleArn}
+              UseBase64: false
+    AllowExactIoTRule:
+      Type: AWS::Lambda::Permission
+      Properties:
+        Action: lambda:InvokeFunction
+        FunctionName: !GetAtt IotTelemetryIngestLambdaFunction.Arn
+        Principal: iot.amazonaws.com
+        SourceAccount: !Ref AWS::AccountId
+        SourceArn: !GetAtt TelemetryRule.Arn
+    IngestionRetryPolicy:
+      Type: AWS::Lambda::EventInvokeConfig
+      Properties:
+        FunctionName: !Ref IotTelemetryIngestLambdaFunction
+        Qualifier: $LATEST
+        MaximumRetryAttempts: ${param:maximumRetryAttempts}
+        MaximumEventAgeInSeconds: ${param:maximumEventAgeInSeconds}

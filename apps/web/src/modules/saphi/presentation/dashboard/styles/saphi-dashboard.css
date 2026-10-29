@@ -1,0 +1,191 @@
+.saphi-dashboard {
+  --saphi-primary: #003d32; --saphi-secondary: #00b85a; --saphi-success: #66bb6a;
+  --saphi-warning: #fdd835; --saphi-alert: #fb8c00; --saphi-background: #f5f7f8;
+  --saphi-surface: #fff; --saphi-text: #263238; --saphi-muted: #596a64; --saphi-border: #e1e9e5;
+  background: var(--saphi-background); color: var(--saphi-text); font: 14px/1.5 'Segoe UI', Arial, sans-serif; min-height: 100vh; color-scheme: light;
+}
+.saphi-dashboard *, .saphi-dashboard *::before, .saphi-dashboard *::after { box-sizing: border-box; }
+.saphi-dashboard h1, .saphi-dashboard h2, .saphi-dashboard h3, .saphi-dashboard p, .saphi-dashboard ul, .saphi-dashboard dl { margin: 0; }
+.saphi-dashboard h1 { font-size: clamp(25px, 2.4vw, 34px); font-weight: 650; letter-spacing: -1px; color: var(--saphi-primary); }
+.saphi-dashboard h2 { font-size: 15px; font-weight: 650; }
+.saphi-dashboard h3 { font-size: 14px; font-weight: 600; }
+.saphi-dashboard small { font-size: 12px; color: var(--saphi-muted); }
+.saphi-dashboard button { font: inherit; cursor: pointer; color: inherit; }
+.saphi-dashboard :focus-visible { outline: 3px solid #1276b7; outline-offset: 4px; }
+.saphi-dashboard button:disabled { opacity: .4; cursor: default; }
+.saphi-dashboard .saphi-skip { position: absolute; left: 16px; top: -100px; z-index: 20; padding: 12px; background: white; color: var(--saphi-primary); }
+.saphi-dashboard .saphi-skip:focus { top: 8px; }
+.saphi-dashboard .saphi-header { display: flex; align-items: center; gap: 26px; min-height: 88px; padding: 16px 28px; background: white; border-bottom: 1px solid var(--saphi-border); }
+.saphi-dashboard .saphi-brand { min-width: 190px; display: flex; gap: 8px; align-items: center; color: var(--saphi-primary); }
+.saphi-dashboard .saphi-brand strong { font-size: 30px; line-height: 1; letter-spacing: -1.8px; font-weight: 750; }
+.saphi-dashboard .saphi-brand strong span { font-size: 19px; font-weight: 400; margin-left: 5px; letter-spacing: -.6px; }
+.saphi-dashboard .saphi-brand small { display: block; font-size: 8px; letter-spacing: 1.7px; margin-top: 6px; }
+.saphi-dashboard .saphi-estate, .saphi-dashboard .saphi-user { display: flex; gap: 10px; align-items: center; }
+.saphi-dashboard .saphi-estate { border-left: 1px solid var(--saphi-border); padding-left: 26px; }
+.saphi-dashboard .saphi-header strong { display: block; }
+.saphi-dashboard .saphi-header small { display: block; }
+.saphi-dashboard .saphi-header-date { margin-left: auto; text-align: right; font-size: 12px; }
+.saphi-dashboard .saphi-notifications { color: var(--saphi-primary); padding: 8px; border-right: 1px solid var(--saphi-border); }
+.saphi-dashboard .saphi-avatar { display: grid; place-items: center; background: #e8f1e9; border-radius: 50%; width: 40px; height: 40px; color: var(--saphi-primary); font-weight: 650; }
+.saphi-dashboard .saphi-user strong { font-size: 13px; }
+.saphi-dashboard .saphi-shell { display: grid; grid-template-columns: 222px minmax(0, 1fr); }
+.saphi-dashboard .saphi-sidebar { background: var(--saphi-primary); color: #d9e9e1; padding: 30px 14px 20px; display: flex; flex-direction: column; }
+.saphi-dashboard .saphi-nav-caption { padding: 0 14px 18px; font-size: 10px; letter-spacing: 1.5px; color: #acc6bc; }
+.saphi-dashboard .saphi-sidebar ul { list-style: none; padding: 0; display: grid; gap: 6px; }
+.saphi-dashboard .saphi-nav-item { display: flex; align-items: center; gap: 12px; min-height: 46px; border-radius: 7px; padding: 10px 13px; font-size: 13px; }
+.saphi-dashboard .saphi-nav-item:hover { background: #155447; }
+.saphi-dashboard .saphi-nav-item.is-active { background: #216351; color: white; box-shadow: inset 3px 0 #63d391; }
+.saphi-dashboard .saphi-active-dot { width: 6px; height: 6px; border-radius: 50%; background: #6ade9a; margin-left: auto; }
+.saphi-dashboard .saphi-sidebar-note { margin: auto 8px 30px; padding: 26px 8px 0; border-top: 1px solid #397062; }
+.saphi-dashboard .saphi-sidebar-note > .v-icon { display: block; color: #86d8a0; margin-bottom: 16px; }
+.saphi-dashboard .saphi-sidebar-note strong { font-size: 17px; font-weight: 500; }
+.saphi-dashboard .saphi-sidebar-note p { color: #b3cec2; font-size: 12px; margin-top: 10px; }
+.saphi-dashboard .saphi-sidebar-footer { color: #b3cec2; font-size: 9px; padding: 0 10px; letter-spacing: 1px; }
+.saphi-dashboard .saphi-content { min-width: 0; padding: 30px clamp(16px, 2.3vw, 38px) 20px; max-width: 1800px; width: 100%; margin: 0 auto; }
+.saphi-dashboard .saphi-page-heading { display: flex; justify-content: space-between; align-items: center; gap: 18px; margin-bottom: 24px; }
+.saphi-dashboard.is-embedded { min-height: 0; border: 1px solid var(--saphi-border); border-radius: 12px; overflow: hidden; }
+.saphi-dashboard.is-embedded .saphi-shell { display: block; }
+.saphi-dashboard.is-embedded .saphi-content { padding-top: 24px; }
+.saphi-dashboard .saphi-company-context { font-size: 12px; color: var(--saphi-muted); margin-bottom: 4px; }
+.saphi-dashboard .saphi-dashboard-title { font-size: clamp(25px, 2.4vw, 34px); font-weight: 650; letter-spacing: -1px; color: var(--saphi-primary); }
+.saphi-dashboard .saphi-eyebrow { font-size: 10px; letter-spacing: 1.8px; font-weight: 650; color: #40785e; margin-bottom: 6px; }
+.saphi-dashboard .saphi-page-heading p:last-child { color: var(--saphi-muted); margin-top: 5px; }
+.saphi-dashboard .saphi-demo-label { flex-shrink: 0; font-size: 10px; letter-spacing: .8px; color: #725412; padding: 7px 10px; border: 1px solid #dfcf9c; background: #fff9e8; border-radius: 5px; }
+.saphi-dashboard .saphi-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-bottom: 22px; }
+.saphi-dashboard .saphi-card { background: var(--saphi-surface); border: 1px solid var(--saphi-border); border-radius: 12px; box-shadow: 0 3px 10px #173c2c04; overflow: hidden; min-width: 0; }
+.saphi-dashboard .saphi-metric { padding: 20px; }
+.saphi-dashboard .saphi-card-heading { display: flex; justify-content: space-between; align-items: start; gap: 8px; }
+.saphi-dashboard .saphi-card-heading h2 { font-size: 13px; }
+.saphi-dashboard .saphi-card-heading > .v-icon { color: #40785e; }
+.saphi-dashboard .saphi-metric-body { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 16px; }
+.saphi-dashboard .saphi-status { background: #edf7ed; color: #27633d; border-radius: 4px; padding: 3px 7px; font-size: 10px; }
+.saphi-dashboard .saphi-value { font-size: 38px; color: var(--saphi-primary); font-weight: 650; letter-spacing: -1.5px; line-height: 1.4; margin-top: 5px; }
+.saphi-dashboard .saphi-value span { font-size: 20px; margin-left: 3px; font-weight: 400; }
+.saphi-dashboard .saphi-metric-body small { font-size: 10px; }
+.saphi-dashboard .saphi-metric-detail { border-top: 1px solid #edf1ee; padding-top: 12px; margin-top: 16px; font-size: 10px; color: var(--saphi-muted); }
+.saphi-dashboard .saphi-sparkbars { display: flex; height: 74px; align-items: end; gap: 4px; width: 44%; }
+.saphi-dashboard .saphi-sparkbars span { flex: 1; background: #42a86a; border-radius: 3px 3px 0 0; }
+.saphi-dashboard .saphi-sparkbars span:nth-child(3n) { background: #b0d9b7; }
+.saphi-dashboard .saphi-gauge { width: 44%; max-width: 145px; }
+.saphi-dashboard .saphi-gauge path { fill: none; stroke-width: 12; stroke-linecap: round; }
+.saphi-dashboard .saphi-gauge-track { stroke: #edf1e7; }
+.saphi-dashboard .saphi-gauge-value { stroke: #4caa6d; }
+.saphi-dashboard .saphi-gauge text { font-size: 11px; fill: #596a64; }
+.saphi-dashboard .saphi-efficiency { width: 82px; height: 82px; flex-shrink: 0; border-radius: 50%; display: grid; place-items: center; color: #267344; background: radial-gradient(closest-side, white 80%, transparent 81%), conic-gradient(#45a765 var(--progress), #edf1e7 0); }
+.saphi-dashboard .saphi-map-grid { display: grid; grid-template-columns: minmax(0, 1fr) 250px; gap: 22px; margin-bottom: 22px; }
+.saphi-dashboard .saphi-section-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 20px 22px; }
+.saphi-dashboard .saphi-section-heading p { font-size: 11px; color: var(--saphi-muted); margin-top: 4px; }
+.saphi-dashboard .saphi-outlined-label { padding: 5px 8px; font-size: 10px; border: 1px solid var(--saphi-border); border-radius: 5px; white-space: nowrap; color: var(--saphi-muted); }
+.saphi-dashboard .saphi-map { position: relative; background: #e7eddf; }
+.saphi-dashboard .saphi-map-svg { display: block; width: 100%; min-height: 240px; max-height: 390px; }
+.saphi-dashboard .saphi-block { cursor: pointer; }
+.saphi-dashboard .saphi-block polygon { stroke: #f5fbef; stroke-width: 2; fill: #5c9c50; }
+.saphi-dashboard .saphi-block.moderate polygon { fill: #d6bf4b; }
+.saphi-dashboard .saphi-block.low polygon { fill: #d68b3e; }
+.saphi-dashboard .saphi-block polygon.saphi-block-texture { stroke: none; pointer-events: none; }
+.saphi-dashboard .saphi-block.selected > polygon:first-of-type, .saphi-dashboard .saphi-block:focus > polygon:first-of-type, .saphi-dashboard .saphi-block:hover > polygon:first-of-type { stroke: #003d32; stroke-width: 5; }
+.saphi-dashboard .saphi-block text { fill: #122d1d; font-weight: 700; font-size: 17px; pointer-events: none; paint-order: stroke; stroke: #ffffffa6; stroke-width: 3px; }
+.saphi-dashboard .saphi-map-north { font-size: 17px; fill: #36533c; }
+.saphi-dashboard .saphi-map-scale { fill: #36533c; font-size: 11px; }
+.saphi-dashboard .saphi-map-controls { position: absolute; top: 16px; left: 16px; display: grid; background: white; box-shadow: 0 2px 8px #19392320; border-radius: 6px; overflow: hidden; }
+.saphi-dashboard .saphi-map-controls button { width: 44px; height: 44px; background: white; border: 0; border-bottom: 1px solid var(--saphi-border); }
+.saphi-dashboard .saphi-map-controls button:hover { background: #eff6ef; }
+.saphi-dashboard .saphi-map-caption { position: absolute; right: 12px; bottom: 10px; font-size: 8px; padding: 4px 6px; background: #ffffffde; color: #3d5542; letter-spacing: .6px; }
+.saphi-dashboard .saphi-map-tooltip { position: absolute; right: 16px; top: 16px; background: white; border-radius: 8px; padding: 14px 38px 14px 14px; box-shadow: 0 4px 16px #133a2420; max-width: calc(100% - 85px); }
+.saphi-dashboard .saphi-map-tooltip strong, .saphi-dashboard .saphi-map-tooltip span { display: block; font-size: 12px; }
+.saphi-dashboard .saphi-map-tooltip button { position: absolute; top: 0; right: 0; width: 36px; height: 44px; border: 0; background: transparent; font-size: 22px; }
+.saphi-dashboard .saphi-map-footer { padding: 14px 22px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; align-items: center; }
+.saphi-dashboard .saphi-legend { display: flex; gap: 16px; padding: 0; list-style: none; font-size: 11px; }
+.saphi-dashboard .saphi-legend li, .saphi-dashboard .saphi-chart-legend { display: flex; align-items: center; gap: 6px; }
+.saphi-dashboard .saphi-state-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.saphi-dashboard .optimal.saphi-state-dot { background: #4a8d45; }
+.saphi-dashboard .moderate.saphi-state-dot { background: #c4ab2b; }
+.saphi-dashboard .low.saphi-state-dot { background: #cd7a26; }
+.saphi-dashboard .saphi-weather { background: linear-gradient(160deg, #f7fcf6, #fff); padding: 22px; }
+.saphi-dashboard .saphi-weather > p { font-size: 12px; color: var(--saphi-muted); margin-top: 6px; }
+.saphi-dashboard .saphi-weather-main { display: flex; align-items: center; justify-content: space-between; margin-top: 30px; color: #486e4a; }
+.saphi-dashboard .saphi-weather-main strong { font-size: 54px; font-weight: 400; letter-spacing: -3px; color: var(--saphi-primary); }
+.saphi-dashboard .saphi-weather dl { margin: 22px 0; }
+.saphi-dashboard .saphi-weather dl div { display: flex; justify-content: space-between; padding: 11px 0; border-bottom: 1px solid var(--saphi-border); font-size: 12px; }
+.saphi-dashboard .saphi-weather dt { color: var(--saphi-muted); }
+.saphi-dashboard .saphi-weather dd { margin: 0; font-weight: 600; }
+.saphi-dashboard .saphi-weather small { display: block; font-size: 10px; }
+.saphi-dashboard .saphi-bottom-grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 22px; }
+.saphi-dashboard .saphi-chart-tabs { display: flex; gap: 6px; margin: 0 22px 15px; flex-wrap: wrap; }
+.saphi-dashboard .saphi-chart-tabs button { background: transparent; border: 1px solid var(--saphi-border); border-radius: 5px; padding: 8px 10px; min-height: 44px; font-size: 11px; }
+.saphi-dashboard .saphi-chart-tabs button[aria-pressed=true] { background: #eaf4ec; color: #205e38; border-color: #8eaf95; }
+.saphi-dashboard .saphi-chart-unit { margin: 0 22px 12px; font-size: 10px; color: var(--saphi-muted); }
+.saphi-dashboard .saphi-chart { display: flex; height: 145px; gap: 12px; padding: 0 26px 0 22px; margin-bottom: 36px; }
+.saphi-dashboard .saphi-chart-axis { display: flex; flex-direction: column; justify-content: space-between; font-size: 10px; color: var(--saphi-muted); width: 24px; }
+.saphi-dashboard .saphi-chart-plot { display: flex; gap: 12px; flex: 1; min-width: 0; background: repeating-linear-gradient(to top, #e8eeea 0 1px, transparent 1px 50%); border-bottom: 1px solid var(--saphi-border); }
+.saphi-dashboard .saphi-chart-column { position: relative; display: flex; align-items: end; justify-content: center; flex: 1; min-width: 0; }
+.saphi-dashboard .saphi-chart-bar { position: relative; border: 0; background: #4b9964; width: 100%; max-width: 36px; min-height: 3px; border-radius: 4px 4px 0 0; }
+.saphi-dashboard .saphi-chart-column:nth-child(even) .saphi-chart-bar { background: #a2cba9; }
+.saphi-dashboard .saphi-chart-label { position: absolute; top: 100%; padding-top: 10px; font-size: 10px; color: var(--saphi-muted); }
+.saphi-dashboard .saphi-chart-tip { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); opacity: 0; pointer-events: none; white-space: nowrap; padding: 4px 8px; background: var(--saphi-primary); color: white; border-radius: 4px; font-size: 11px; z-index: 1; }
+.saphi-dashboard .saphi-chart-bar:hover .saphi-chart-tip, .saphi-dashboard .saphi-chart-bar:focus .saphi-chart-tip { opacity: 1; }
+.saphi-dashboard .saphi-chart-legend { padding: 0 22px 16px; font-size: 10px; flex-wrap: wrap; }
+.saphi-dashboard .saphi-chart-legend small { margin-left: auto; font-size: 9px; }
+.saphi-dashboard .saphi-activity ul { list-style: none; padding: 0 22px; }
+.saphi-dashboard .saphi-activity li { display: flex; gap: 12px; padding: 16px 0; border-bottom: 1px solid #edf1ee; }
+.saphi-dashboard .saphi-event-icon { width: 36px; height: 36px; flex-shrink: 0; display: grid; place-items: center; border-radius: 8px; background: #eff5ed; color: #44724c; }
+.saphi-dashboard .saphi-activity li p { font-size: 11px; color: var(--saphi-muted); margin-top: 3px; }
+.saphi-dashboard .saphi-activity li small { font-size: 10px; }
+.saphi-dashboard .saphi-activity-footer { padding: 14px 22px; font-size: 10px; color: var(--saphi-muted); }
+.saphi-dashboard .saphi-page-footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-top: 22px; color: var(--saphi-muted); font-size: 10px; }
+.saphi-dashboard .saphi-empty { padding: 36px 22px; color: var(--saphi-muted); text-align: center; }
+@media (min-width: 1600px) { .saphi-dashboard .saphi-content { padding-top: 38px; } .saphi-dashboard .saphi-map-grid { grid-template-columns: minmax(0, 1fr) 285px; } }
+@media (max-width: 1199px) {
+  .saphi-dashboard .saphi-header { padding: 16px; gap: 18px; }
+  .saphi-dashboard .saphi-brand { min-width: auto; }
+  .saphi-dashboard .saphi-user > div, .saphi-dashboard .saphi-header-date { display: none; }
+  .saphi-dashboard .saphi-estate { margin-right: auto; }
+  .saphi-dashboard .saphi-shell { grid-template-columns: 72px minmax(0, 1fr); }
+  .saphi-dashboard .saphi-sidebar { padding: 24px 10px; }
+  .saphi-dashboard .saphi-nav-item { justify-content: center; padding: 10px; }
+  .saphi-dashboard .saphi-nav-item > span, .saphi-dashboard .saphi-nav-caption, .saphi-dashboard .saphi-sidebar-note, .saphi-dashboard .saphi-sidebar-footer { display: none; }
+  .saphi-dashboard .saphi-page-heading { align-items: start; }
+  .saphi-dashboard .saphi-metrics { gap: 12px; }
+  .saphi-dashboard .saphi-metric { padding: 16px; }
+  .saphi-dashboard .saphi-value { font-size: 32px; }
+  .saphi-dashboard .saphi-efficiency { width: 64px; height: 64px; }
+  .saphi-dashboard .saphi-map-grid { grid-template-columns: minmax(0, 1fr) 220px; gap: 16px; }
+  .saphi-dashboard .saphi-bottom-grid { gap: 16px; }
+}
+@media (max-width: 900px) {
+  .saphi-dashboard .saphi-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .saphi-dashboard .saphi-metrics > :last-child { grid-column: 1 / -1; }
+  .saphi-dashboard .saphi-map-grid, .saphi-dashboard .saphi-bottom-grid { grid-template-columns: minmax(0, 1fr); }
+  .saphi-dashboard .saphi-weather-main { margin-top: 8px; justify-content: start; gap: 24px; }
+  .saphi-dashboard .saphi-weather dl { display: flex; gap: 24px; flex-wrap: wrap; margin: 12px 0; }
+  .saphi-dashboard .saphi-weather dl div { flex: 1; gap: 16px; }
+  .saphi-dashboard .saphi-page-heading { flex-direction: column; gap: 12px; }
+}
+@media (max-width: 599px) {
+  .saphi-dashboard .saphi-header { gap: 10px; min-height: 74px; padding: 14px; flex-wrap: wrap; }
+  .saphi-dashboard .saphi-brand { margin-right: auto; }
+  .saphi-dashboard .saphi-estate { order: 4; flex-basis: 100%; border: 0; padding: 10px 0 0; border-top: 1px solid var(--saphi-border); }
+  .saphi-dashboard .saphi-estate small { display: inline; }
+  .saphi-dashboard .saphi-shell { display: block; }
+  .saphi-dashboard .saphi-sidebar { padding: 6px 8px; }
+  .saphi-dashboard .saphi-sidebar ul { grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 0; }
+  .saphi-dashboard .saphi-nav-item { padding: 8px 0; min-height: 44px; }
+  .saphi-dashboard .saphi-nav-item .v-icon { font-size: 20px; }
+  .saphi-dashboard .saphi-content { padding: 24px 14px 18px; }
+  .saphi-dashboard .saphi-metrics { grid-template-columns: minmax(0, 1fr); }
+  .saphi-dashboard .saphi-metrics > :last-child { grid-column: auto; }
+  .saphi-dashboard .saphi-metric { padding: 20px; }
+  .saphi-dashboard .saphi-value { font-size: 38px; }
+  .saphi-dashboard .saphi-section-heading { padding: 18px 16px; align-items: start; flex-wrap: wrap; }
+  .saphi-dashboard .saphi-outlined-label { white-space: normal; }
+  .saphi-dashboard .saphi-map-svg { min-height: 210px; }
+  .saphi-dashboard .saphi-map-controls { top: 8px; left: 8px; }
+  .saphi-dashboard .saphi-map-controls button { width: 36px; height: 44px; }
+  .saphi-dashboard .saphi-map-footer { padding: 14px 16px; }
+  .saphi-dashboard .saphi-weather dl { gap: 10px; }
+  .saphi-dashboard .saphi-weather dl div { flex-basis: 100%; }
+  .saphi-dashboard .saphi-chart-tabs { margin: 0 16px 12px; }
+  .saphi-dashboard .saphi-chart { padding: 0 16px; gap: 8px; }
+  .saphi-dashboard .saphi-chart-plot { gap: 8px; }
+  .saphi-dashboard .saphi-chart-legend small { margin-left: 0; }
+}

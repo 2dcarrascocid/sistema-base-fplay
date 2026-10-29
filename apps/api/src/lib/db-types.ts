@@ -1,4 +1,5 @@
 import type { ColumnType, Generated, Selectable } from 'kysely';
+import type { SaphiDatabase } from './saphi-db-types.js';
 
 /** Read as Date, written as Date or ISO string. */
 type Timestamp = ColumnType<Date, Date | string, Date | string>;
@@ -199,7 +200,7 @@ export interface AuditLogTable {
   new_value: unknown;
 }
 
-export interface Database {
+export interface Database extends SaphiDatabase {
   'app.roles': RolesTable;
   'app.users': UsersTable;
   'app.user_identities': UserIdentitiesTable;

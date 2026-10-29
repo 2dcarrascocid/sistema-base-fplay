@@ -1,0 +1,13 @@
+begin;
+create extension if not exists pgtap with schema extensions;
+set local search_path=public,extensions;
+select plan(7);
+select ok(has_table_privilege('app_api','saphi.soil_samples','SELECT'),'runtime can read authorized samples');
+select ok(has_column_privilege('app_api','saphi.soil_samples','sampled_at','INSERT'),'runtime can capture sampling instant');
+select ok(not has_table_privilege('app_api','saphi.soil_samples','UPDATE'),'samples remain immutable');
+select ok(not has_table_privilege('app_api','saphi.soil_samples','DELETE'),'sample history cannot be deleted');
+select has_index('saphi','soil_samples','soil_samples_history_idx','sample history cursor index exists');
+select is((select route from app.menus where code='saphi.samples'),'/saphi/samples','sampling menu opens samples');
+select ok((select relrowsecurity from pg_class where oid='saphi.soil_samples'::regclass),'sample RLS remains enabled');
+select * from finish();
+rollback;

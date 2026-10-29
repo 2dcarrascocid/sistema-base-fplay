@@ -15,8 +15,10 @@ import type { Deps } from '../src/lib/deps.js';
 import { pwnedPasswordsChecker } from '../src/lib/external.js';
 import { createRouter, type Route } from '../src/lib/http.js';
 import { meRoutes } from '../src/me/routes.js';
+import { saphiRoutes } from '../src/saphi/routes.js';
 import { postAuthentication, preAuthentication } from '../src/triggers/authentication.js';
 import { consoleMailer, DEV_CODE, DEV_PASSWORD, devVerifier, DevCognito, MemoryStorage } from './fakes.js';
+import { localGeeProvider } from './gee-provider.js';
 
 if (process.env['NODE_ENV'] === 'production') {
   console.error('The development server must never run in production.');
@@ -57,7 +59,7 @@ const shared = {
   encryptionKey: randomBytes(32),
 };
 const authDeps: Deps = { ...shared, db: authDb };
-const apiDeps: Deps = { ...shared, db: apiDb };
+const apiDeps: Deps = { ...shared, db: apiDb, satelliteMaps:localGeeProvider };
 
 // The simulated Cognito runs the real Pre/Post authentication triggers (lockout, audit).
 cognito.triggers = {
@@ -72,6 +74,7 @@ cognito.triggers = {
 };
 
 const routers = [
+  { routes: saphiRoutes(apiDeps), handler: createRouter(saphiRoutes(apiDeps)) },
   { routes: authRoutes(authDeps), handler: createRouter(authRoutes(authDeps)) },
   { routes: meRoutes(apiDeps), handler: createRouter(meRoutes(apiDeps)) },
   { routes: adminRoutes(apiDeps), handler: createRouter(adminRoutes(apiDeps)) },
