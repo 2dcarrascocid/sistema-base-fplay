@@ -21,7 +21,7 @@
     "@aws-sdk/s3-request-presigner": "3.1152.0",
     "@base/shared": "workspace:*",
     "aws-jwt-verify": "5.2.1",
-    "kysely": "0.28.18",
+    "kysely": "0.29.7",
     "pg": "8.23.1",
     "zod": "4.6.7",
     "sanitize-html": "2.18.1"
