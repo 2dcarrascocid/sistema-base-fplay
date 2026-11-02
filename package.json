@@ -16,8 +16,8 @@
     "typecheck": "pnpm -r typecheck"
   },
   "devDependencies": {
-    "supabase": "2.117.0",
-    "typescript": "6.0.3"
+    "supabase": "2.122.0",
+    "typescript": "7.0.2"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
