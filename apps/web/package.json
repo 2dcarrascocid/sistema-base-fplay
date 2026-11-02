@@ -14,7 +14,7 @@
     "@base/shared": "workspace:*",
     "@base/ui": "workspace:*",
     "@mdi/font": "7.4.47",
-    "pinia": "3.0.4",
+    "pinia": "4.1.0",
     "qrcode": "1.5.4",
     "vue": "3.5.43",
     "vue-i18n": "11.4.12",
